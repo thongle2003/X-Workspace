@@ -13,11 +13,11 @@ const reportResult = () => ({
 });
 const profile = {name:'Công ty riêng tư',industry:'SaaS',stage:'Seed',location:'TP.HCM',summary:'Thông tin công bố dành cho nhà đầu tư.',target:1000};
 
-async function fixture(t,{provider=async()=>reportResult(),chatProvider=async()=>({model:'gpt-6-astra',provider:'ModelAPI',requestId:'chat-http-test',text:'Hãy kiểm tra dòng tiền.',usage:{inputTokens:80,outputTokens:20,totalTokens:100}}),configured=true,publicOrigin='',publicDemo=false}={}) {
+async function fixture(t,{provider=async()=>reportResult(),chatProvider=async()=>({model:'gpt-6-astra',provider:'ModelAPI',requestId:'chat-http-test',text:'Hãy kiểm tra dòng tiền.',usage:{inputTokens:80,outputTokens:20,totalTokens:100}}),configured=true,publicOrigin='',publicDemo=false,backupAdminKey=''}={}) {
   const store=createWorkflowStore();
   let time=Date.now();
   const config=()=>getAIConfig(configured?{AI_BASE_URL:'https://api.modelapi.vn/v1',AI_API_KEY:'mock-secret-not-real',AI_MODEL:'gpt-6-astra'}:{});
-  const handler=createAPI({store,config,provider,chatProvider,now:()=>time,publicOrigin,publicDemo});
+  const handler=createAPI({store,config,provider,chatProvider,now:()=>time,publicOrigin,publicDemo,backupAdminKey});
   const server=http.createServer((req,res)=>{void handler(req,res);});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const base=`http://127.0.0.1:${server.address().port}`;
@@ -180,4 +180,14 @@ test('public demo locks upgrades on the API and new sessions never refill Free t
   const analysis=await app.request('/api/ai/analysis',{token:first,body:{csv:SAMPLE_CSV,name:'Test public demo'}});assert.equal(analysis.status,200);
   const second=await app.session('founder');const current=await app.request('/api/workflow',{token:second});assert.equal(current.body.usage.used,700);assert.equal(current.body.usage.remaining,1300);
   const investor=await app.session('investor');assert.equal((await app.action(investor,{type:'change-plan',tier:'pro'})).status,403);assert.equal(app.store.snapshot('investor').plan.tier,'free');
+});
+
+
+test('administrative backup is private and restores all shared data with an exact revision guard',async t=>{
+  const key='backup-admin-key-for-tests-only';const source=await fixture(t,{backupAdminKey:key});const founder=await source.session('founder');await source.project(founder);
+  assert.equal((await source.request('/api/admin/backup',{token:founder})).status,403);
+  const headers={authorization:'Bearer '+key};const exported=await source.request('/api/admin/backup',{headers});assert.equal(exported.status,200);assert.equal(exported.body.format,'2g2bt-backup-v1');assert.equal(exported.body.data.workspaces.length,1);assert.ok(!JSON.stringify(exported.body).includes('mock-secret-not-real'));
+  const target=await fixture(t,{backupAdminKey:key});const restored=await target.request('/api/admin/restore',{headers,body:{backup:exported.body,expectedRevision:0}});assert.equal(restored.status,200);assert.equal(target.store.snapshot('founder').workspaces.length,1);
+  const stale=await target.request('/api/admin/restore',{headers,body:{backup:exported.body,expectedRevision:0}});assert.equal(stale.status,409);
+  assert.equal((await target.request('/api/admin/restore',{headers:{authorization:'Bearer wrong-key'},body:{backup:exported.body,expectedRevision:1}})).status,403);
 });

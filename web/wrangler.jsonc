@@ -1,0 +1,25 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "x-workspace-backup",
+  "main": "cloudflare/worker.mjs",
+  "compatibility_date": "2026-10-30",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api", "/api/*"]
+  },
+  "vars": {
+    "AI_BASE_URL": "https://api.modelapi.vn/v1",
+    "AI_MODEL": "gpt-6-astra",
+    "AI_MAX_OUTPUT_TOKENS": "1024",
+    "AI_REASONING_EFFORT": "low",
+    "PUBLIC_DEMO": "true"
+  },
+  "durable_objects": {
+    "bindings": [{"name": "WORKFLOW", "class_name": "Workflow"}]
+  },
+  "migrations": [{"tag": "v1", "new_sqlite_classes": ["Workflow"]}]
+}

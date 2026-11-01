@@ -4,6 +4,12 @@ Prototype kết nối Startup với Nhà đầu tư, xây bằng React, Tailwind
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2Fthongle2003%2FX-Workspace)
 
+## Bản dự phòng Cloudflare Free
+
+[Website dự phòng](https://x-workspace-backup.x-workspace.workers.dev) chạy độc lập cả React, API ModelAPI và dữ liệu SQLite Durable Object. Mở link trực tiếp, không cần mật khẩu. Đã xác minh tài khoản Workers ở Free. ModelAPI vẫn tính phí riêng.
+
+[Hướng dẫn Cloudflare và sao lưu dữ liệu](docs/HOST-CLOUDFLARE.md). Hai site là hai bản dữ liệu độc lập sau khi sao chép, chưa tự đồng bộ liên tục.
+
 ## Host demo miễn phí khoảng một tuần
 
 Blueprint `render.yaml` chọn **Render Free Web Service**, region Singapore. Kết nối GitHub, nhập `AI_API_KEY` trong Render, deploy rồi mở URL được cấp. Bản chia sẻ công khai mở trực tiếp không cần mật khẩu (`PUBLIC_DEMO=true`). Việc đổi gói bị khóa phía máy chủ để giữ ngân sách AI trong hạn mức Free.

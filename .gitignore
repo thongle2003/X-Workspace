@@ -10,3 +10,6 @@ auth.json
 *.log
 tmp/
 output/
+.wrangler/
+.dev.vars
+.dev.vars.*

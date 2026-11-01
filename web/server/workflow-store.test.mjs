@@ -308,3 +308,119 @@ test('downgrades preserve selections but comparison opening and new saves obey t
   store.act('investor',{type:'toggle-compare',workspaceId:'listing-0'});
   assert.throws(()=>store.act('investor',{type:'compare'}),code('INVALID'));
 });
+
+
+test('synchronous persistence callback rehydrates cloned state and never exposes live store references',()=>{
+  let durable=null;
+  const store=createWorkflowStore({onPersist:next=>{durable=structuredClone(next);next.accounts.founder.tier='pro';}});
+  const project=publishAndUpload(store);approve(store,project.id);
+  const pending=store.beginAnalysis('founder',{workspaceId:project.id,inputTokensEstimate:400,maxOutputTokens:400});
+  store.failAnalysis('founder',pending.id,{unknown:true});
+  assert.equal(store.snapshot('founder').plan.tier,'free');assert.equal(durable.accounts.founder.tier,'free');
+  const restored=createWorkflowStore({initialData:durable});
+  assert.equal(restored.snapshot('founder').usage.used,800);assert.equal(restored.snapshot('founder').usage.pendingTokens,800);
+  durable.accounts.founder.ledgers.free.aiTokens=0;
+  assert.equal(restored.snapshot('founder').usage.used,800);
+  const exported=restored.exportData();exported.workspaces[0].financial.csv='tampered';exported.accounts.founder.ledgers.free.aiTokens=0;
+  assert.equal(restored.snapshot('founder').usage.used,800);assert.equal(restored.getFinancial('investor',project.id).csv,SAMPLE_CSV);
+  restored.finishAnalysis('founder',pending.id,aiResult(650));assert.equal(restored.snapshot('founder').usage.used,650);
+});
+
+test('callback write failure preserves memory, wallets and revision and can be retried safely',()=>{
+  let writingFails=false,durable=null;
+  const store=createWorkflowStore({onPersist:value=>{if(writingFails)throw new Error('SQLite write failed');durable=value;}});
+  const project=create(store);const before=store.exportData();writingFails=true;
+  assert.throws(()=>store.beginAnalysis('founder',{csv:SAMPLE_CSV,inputTokensEstimate:500,maxOutputTokens:500}),/SQLite write failed/);
+  assert.deepEqual(store.exportData(),before);assert.deepEqual(durable,before);assert.equal(store.snapshot('founder').usage.used,0);
+  writingFails=false;const pending=store.beginChat('founder',{inputTokensEstimate:100,maxOutputTokens:100});assert.equal(store.snapshot('founder').usage.used,200);
+  store.failAnalysis('founder',pending.id,{inputTokens:100,outputTokens:50,totalTokens:150});
+  const current=store.exportData();writingFails=true;
+  assert.throws(()=>store.restoreData(before,{expectedRevision:current.revision}),/SQLite write failed/);
+  assert.deepEqual(store.exportData(),current);
+  assert.throws(()=>createWorkflowStore({onPersist:null}),/synchronous function/);
+  assert.throws(()=>createWorkflowStore({onPersist:async()=>{}}),/synchronous function/);
+  assert.throws(()=>createWorkflowStore({filePath:'unused.json',onPersist:()=>{}}),/not both/);
+  assert.equal(project.ownerId,'founder');assert.ok(pending.id);
+});
+
+function richBackup(){
+  const source=createWorkflowStore();const project=publishAndUpload(source);const request=approve(source,project.id);
+  source.act('founder',{type:'send-message',workspaceId:project.id,text:'Dữ liệu tài chính riêng tư được chia sẻ theo quyền.'});
+  source.act('investor',{type:'toggle-watch',workspaceId:project.id});source.act('investor',{type:'toggle-compare',workspaceId:project.id});
+  source.act('investor',{type:'record-investment',workspaceId:project.id,invested:500,ownership:2,date:'2026-11-01'});
+  const position=source.snapshot('investor').portfolio[0];source.act('investor',{type:'update-investment',positionId:position.id,period:'2026-11',revenue:480,cash:1875,valuation:27500});
+  const analysis=source.beginAnalysis('founder',{workspaceId:project.id,inputTokensEstimate:400,maxOutputTokens:400});source.finishAnalysis('founder',analysis.id,aiResult(700));
+  const chat=source.beginChat('investor',{workspaceId:project.id,inputTokensEstimate:100,maxOutputTokens:100});source.finishChat('investor',chat.id,{...aiResult(),text:'Cần kiểm tra thời gian thu hồi công nợ.'});
+  const uncertain=source.beginChat('founder',{workspaceId:project.id,inputTokensEstimate:100,maxOutputTokens:100});source.failAnalysis('founder',uncertain.id,{unknown:true});
+  return {source,project,request,uncertain};
+}
+
+test('backup restore preserves shared records, actual AI usage and uncertain holds without resetting Free',()=>{
+  const {source,project,uncertain}=richBackup();const backup=source.exportData();let durable;
+  const target=createWorkflowStore({onPersist:value=>{durable=value;}});const result=target.restoreData(backup,{expectedRevision:0});
+  assert.equal(result.revision,1);assert.equal(durable.revision,1);
+  assert.equal(target.snapshot('founder').usage.used,900);assert.equal(target.snapshot('founder').usage.pendingTokens,200);
+  assert.equal(target.snapshot('investor').usage.used,150);assert.equal(target.snapshot('investor').usage.connections.used,1);
+  assert.equal(target.snapshot('investor').portfolio[0].updates[0].valuation,27500);assert.equal(target.getFinancial('investor',project.id).csv,SAMPLE_CSV);
+  assert.equal(target.snapshot('investor').reports.length,1);assert.equal(target.snapshot('investor').messages.length,1);
+  assert.deepEqual(target.snapshot('investor').watchlist,[project.id]);
+  const rehydrated=createWorkflowStore({initialData:target.exportData()});rehydrated.failAnalysis('founder',uncertain.id,{inputTokens:70,outputTokens:30,totalTokens:100});
+  assert.equal(rehydrated.snapshot('founder').usage.used,800);
+  assert.throws(()=>target.restoreData(backup,{expectedRevision:0}),code('REVISION_CONFLICT'));
+  assert.throws(()=>target.restoreData(backup),code('INVALID'));
+  assert.equal(target.exportData().revision,1);
+  result.accounts.founder.ledgers.free.aiTokens=0;assert.equal(target.snapshot('founder').usage.used,900);
+});
+
+test('constructor and privileged restore reject malformed backups before any durable write',()=>{
+  const {source}=richBackup();const original=source.exportData();
+  const edits=[
+    value=>{value.version=2;},
+    value=>{delete value.accounts.founder;},
+    value=>{value.accounts.investor.tier='toString';},
+    value=>{value.accounts.founder.ledgers.free.aiTokens=-1;},
+    value=>{value.accounts.founder.ledgers.free.aiTokens=0;},
+    value=>{value.accounts.investor.ledgers.free.connections=0;},
+    value=>{value.accounts.investor.ledgers['week:2026-11-03']={aiTokens:0,analyses:0,connections:0};},
+    value=>{value.accounts.investor.watchlist=null;},
+    value=>{value.accounts.investor.watchlist=['missing-workspace'];},
+    value=>{value.workspaces[0].ownerId='investor';},
+    value=>{value.workspaces.push(structuredClone(value.workspaces[0]));},
+    value=>{value.workspaces[0].financial.csv='not csv';},
+    value=>{value.requests[0].workspaceId='missing-workspace';},
+    value=>{value.requests[0].status='root';},
+    value=>{value.messages[0].authorId='investor2';},
+    value=>{value.portfolio[0].ownership=101;},
+    value=>{value.portfolio[0].updates[0].cash=-1;},
+    value=>{value.reports[0].analysis.latest.revenue=999;},
+    value=>{value.reports[0].tokenUsage.totalTokens=1;},
+    value=>{value.reports[0].ai.risks=[{title:'Missing evidence'}];},
+    value=>{value.reservations[0].userId='investor2';},
+    value=>{value.reservations[0].bucketKey='week:2026-11-03';},
+    value=>{value.reservations[0].reportId='missing-report';},
+    value=>{value.reservations.at(-1).status='pending';value.reservations.at(-1).actualTokens=50;},
+    value=>{value.AI_API_KEY='should-never-enter-state';},
+  ];
+  let writes=0;const target=createWorkflowStore({onPersist:()=>{writes++;}});const before=target.exportData();
+  for(const edit of edits){const changed=structuredClone(original);edit(changed);assert.throws(()=>createWorkflowStore({initialData:changed}),code('BACKUP_INVALID'));assert.throws(()=>target.restoreData(changed,{expectedRevision:0}),code('BACKUP_INVALID'));assert.deepEqual(target.exportData(),before);}
+  assert.equal(writes,0);
+});
+
+test('file loading and initialData apply the same validation and retain the original bytes on failure',()=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'2g2bt-restore-'));
+  try{const filePath=path.join(directory,'data.json');const {source}=richBackup();const valid=source.exportData();fs.writeFileSync(filePath,JSON.stringify(valid));assert.deepEqual(createWorkflowStore({filePath}).exportData(),createWorkflowStore({initialData:valid}).exportData());
+    const malformed=structuredClone(valid);malformed.accounts.founder.ledgers.free.aiTokens=-1;const bytes=JSON.stringify(malformed);fs.writeFileSync(filePath,bytes);assert.throws(()=>createWorkflowStore({filePath}),code('BACKUP_INVALID'));assert.equal(fs.readFileSync(filePath,'utf8'),bytes);
+  }finally{fs.rmSync(directory,{recursive:true,force:true});}
+});
+
+
+test('restore refuses to erase live or uncertain AI holds even when the revision matches',()=>{
+  const store=createWorkflowStore();const empty=store.exportData();const pending=store.beginChat('founder',{inputTokensEstimate:100,maxOutputTokens:100});
+  assert.throws(()=>store.restoreData(empty,{expectedRevision:store.exportData().revision}),code('AI_PENDING'));
+  store.failAnalysis('founder',pending.id,{unknown:true});
+  assert.throws(()=>store.restoreData(empty,{expectedRevision:store.exportData().revision}),code('AI_PENDING'));
+  assert.equal(store.snapshot('founder').usage.pendingTokens,200);
+  store.failAnalysis('founder',pending.id,{inputTokens:80,outputTokens:20,totalTokens:100});
+  const source=createWorkflowStore().exportData();source.accounts.founder.ledgers.free.aiTokens=100;
+  store.restoreData(source,{expectedRevision:store.exportData().revision});assert.equal(store.snapshot('founder').usage.used,100);
+});

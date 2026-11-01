@@ -12,7 +12,10 @@
     "test:e2e": "playwright test",
     "test:server": "node --test server/*.test.mjs",
     "test:e2e:demo": "playwright test --config playwright.demo.config.js",
-    "start:prod": "node server/start.mjs"
+    "start:prod": "node server/start.mjs",
+    "dev:cloudflare": "wrangler dev",
+    "deploy:cloudflare": "npm run build && wrangler deploy",
+    "test:cloudflare": "node --test cloudflare/*.test.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "latest",
@@ -24,7 +27,8 @@
     "vite": "latest"
   },
   "devDependencies": {
-    "@playwright/test": "^1.64.1"
+    "@playwright/test": "^1.64.1",
+    "wrangler": "^4.156.0"
   },
   "engines": {
     "node": ">=22.12.0"

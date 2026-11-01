@@ -110,6 +110,7 @@ export function productionAccess(env = process.env) {
 
 export async function startProduction() {
   // Import after startup so the API can load local .env before reading settings.
+  const { loadLocalEnv } = await import('./local-env.mjs');loadLocalEnv();
   const { createAPI } = await import('./api.mjs');
   const { publicOrigin, password, publicDemo } = productionAccess();
   const port = Number(process.env.PORT || 10000);

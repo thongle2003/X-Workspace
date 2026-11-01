@@ -2,6 +2,9 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { createAPI } from './server/api.mjs';
+import { loadLocalEnv } from './server/local-env.mjs';
+
+loadLocalEnv();
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), { name:'investment-api', configureServer(server){server.middlewares.use(createAPI());}, configurePreviewServer(server){server.middlewares.use(createAPI());} }],

@@ -1,21 +1,22 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createWorkflowStore, DEMO_USERS } from './workflow-store.mjs';
 import { getAIConfig, aiStatus, buildFinancialPrompt, buildChatPrompt, estimateInputTokens, generateFinancialReport, generateChatReply } from './ai-provider.mjs';
 import { parseCSV, analyze } from '../domain.js';
 
-const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-try { process.loadEnvFile(path.join(webRoot, '.env')); } catch (error) { if(error.code !== 'ENOENT') throw error; }
+const webRoot = typeof import.meta.url==='string'&&import.meta.url.startsWith('file:')
+  ? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+  : '/app';
 const fail = (status,code,message) => Object.assign(new Error(message),{status,code});
 const hostAllowed = host => ['localhost','127.0.0.1','[::1]'].includes(host);
 function send(res,status,value) { res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value)); }
-async function json(req) {
+async function json(req,maxBytes=2_200_000) {
   if(!String(req.headers['content-type']||'').startsWith('application/json')) throw fail(415,'CONTENT_TYPE','Yêu cầu phải là JSON.');
-  let size=0;const chunks=[];for await(const chunk of req){size+=chunk.length;if(size>2_200_000)throw fail(413,'FILE_SIZE','Dữ liệu vượt giới hạn 2 MB.');chunks.push(chunk);}
+  let size=0;const chunks=[];for await(const chunk of req){size+=chunk.length;if(size>maxBytes)throw fail(413,'FILE_SIZE','Dữ liệu vượt giới hạn của yêu cầu.');chunks.push(chunk);}
   try { const data=JSON.parse(Buffer.concat(chunks).toString('utf8'));if(!data||typeof data!=='object'||Array.isArray(data))throw new Error();return data; } catch { throw fail(400,'JSON','JSON phải là một đối tượng hợp lệ.'); }
 }
-export function createAPI({store=createWorkflowStore({filePath:process.env.WORKFLOW_DATA_FILE||path.resolve(webRoot,'../.runtime/workflow.json')}), config=()=>getAIConfig(), provider=generateFinancialReport, chatProvider=generateChatReply, now=()=>Date.now(), publicOrigin=process.env.APP_ORIGIN||process.env.RENDER_EXTERNAL_URL||'', publicDemo=process.env.PUBLIC_DEMO==='true'}={}) {
+export function createAPI({store=createWorkflowStore({filePath:process.env.WORKFLOW_DATA_FILE||path.resolve(webRoot,'../.runtime/workflow.json')}), config=()=>getAIConfig(), provider=generateFinancialReport, chatProvider=generateChatReply, now=()=>Date.now(), publicOrigin=process.env.APP_ORIGIN||process.env.RENDER_EXTERNAL_URL||'', publicDemo=process.env.PUBLIC_DEMO==='true', backupAdminKey=process.env.BACKUP_ADMIN_KEY||''}={}) {
   const sessions=new Map();const inFlight=new Set();
   let hostedOrigin=null;
   if(publicOrigin){
@@ -35,6 +36,18 @@ export function createAPI({store=createWorkflowStore({filePath:process.env.WORKF
       if(req.headers.origin){const origin=new URL(req.headers.origin);if(origin.host!==req.headers.host||!(isLocal&&hostAllowed(origin.hostname)||isHosted&&origin.origin===hostedOrigin))throw fail(403,'ORIGIN','Nguồn yêu cầu không hợp lệ.');}
       if(req.method==='GET'&&url.pathname==='/api/health')return send(res,200,{ok:true,mode:hostedOrigin?'hosted-demo':'local-demo'});
       if(req.method==='GET'&&url.pathname==='/api/ai/status')return send(res,200,{...aiStatus(config()),publicDemo,allowPlanChanges:!publicDemo});
+      if(url.pathname==='/api/admin/backup'||url.pathname==='/api/admin/restore'){
+        const supplied=req.headers.authorization;
+        const digest=value=>createHash('sha256').update(value).digest();
+        if(!backupAdminKey||typeof supplied!=='string'||!timingSafeEqual(digest(supplied),digest('Bearer '+backupAdminKey)))throw fail(403,'BACKUP_AUTH','Không có quyền quản trị sao lưu.');
+        if(req.method==='GET'&&url.pathname==='/api/admin/backup')return send(res,200,{format:'2g2bt-backup-v1',exportedAt:new Date(now()).toISOString(),data:store.exportData()});
+        if(req.method==='POST'&&url.pathname==='/api/admin/restore'){
+          const body=await json(req,20_000_000);const backup=body.backup?.format==='2g2bt-backup-v1'?body.backup.data:body.backup;
+          store.restoreData(backup,{expectedRevision:body.expectedRevision});
+          return send(res,200,{ok:true,revision:store.exportData().revision});
+        }
+        throw fail(405,'METHOD','Phương thức sao lưu không được hỗ trợ.');
+      }
       if(req.method==='POST'&&url.pathname==='/api/demo/session'){
         const body=await json(req);const userId=body.role==='founder'?'founder':body.role==='investor'?'investor':null;
         if(!userId)throw fail(400,'ROLE','Vai trò không hợp lệ.');

@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: x-workspace-demo
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: web
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22.22.0
+      - key: NODE_ENV
+        value: production
+      - key: AI_BASE_URL
+        value: https://api.modelapi.vn/v1
+      - key: AI_MODEL
+        value: gpt-6-astra
+      - key: AI_MAX_OUTPUT_TOKENS
+        value: 1024
+      - key: AI_REASONING_EFFORT
+        value: low
+      - key: AI_API_KEY
+        sync: false
+      - key: SITE_PASSWORD
+        generateValue: true

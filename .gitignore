@@ -1,0 +1,12 @@
+.runtime/
+node_modules/
+dist/
+test-results/
+playwright-report/
+.env
+.env.*
+!.env.example
+auth.json
+*.log
+tmp/
+output/

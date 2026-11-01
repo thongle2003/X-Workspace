@@ -1,0 +1,32 @@
+{
+  "name": "x-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "X Workspace React prototype for startups and investors",
+  "scripts": {
+    "start": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "node --test ../tools/*.test.mjs",
+    "test:e2e": "playwright test",
+    "test:server": "node --test server/*.test.mjs",
+    "test:e2e:demo": "playwright test --config playwright.demo.config.js",
+    "start:prod": "node server/start.mjs"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "latest",
+    "@vitejs/plugin-react": "latest",
+    "lucide-react": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "tailwindcss": "latest",
+    "vite": "latest"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

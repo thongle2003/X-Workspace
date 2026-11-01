@@ -62,4 +62,4 @@ npm run test:server
 npm run start:prod
 ```
 
-Local production mở `http://127.0.0.1:10000`. Render Blueprint bật `PUBLIC_DEMO=true`, nên website và API không yêu cầu mật khẩu Basic. Quyền xem hồ sơ vẫn được kiểm tra theo phiên và quyết định duyệt của Startup. Nếu muốn dùng chế độ riêng, bỏ PUBLIC_DEMO và cấu hình SITE_PASSWORD.
+Local production mở `http://127.0.0.1:10000`. Render Blueprint bật `PUBLIC_DEMO=true`, nên website và API không yêu cầu mật khẩu Basic. Quyền xem hồ sơ vẫn được kiểm tra theo phiên và quyết định duyệt của Startup. Render mặc định mở bản chia sẻ ngay khi deploy code mới, kể cả service cũ chưa đồng bộ biến PUBLIC_DEMO. Nếu muốn dùng chế độ riêng, đặt PUBLIC_DEMO=false và cấu hình SITE_PASSWORD.

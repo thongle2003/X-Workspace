@@ -86,5 +86,7 @@ test('public demo deliberately opens HTML and API without a password even when a
   assert.equal(access.password,'');assert.equal(access.publicDemo,true);
   const app=await fixture(t,{password:access.password});
   assert.equal((await app.raw('/')).status,200);assert.equal((await app.raw('/assets/app-hash.js')).status,200);assert.equal((await app.raw('/api/test')).status,200);
-  assert.throws(()=>productionAccess({RENDER:'true'}));assert.equal(productionAccess({RENDER:'true',SITE_PASSWORD:'still-private'}).password,'still-private');
+  assert.equal(productionAccess({RENDER:'true'}).publicDemo,true);
+  assert.throws(()=>productionAccess({RENDER:'true',PUBLIC_DEMO:'false'}));
+  assert.equal(productionAccess({RENDER:'true',PUBLIC_DEMO:'false',SITE_PASSWORD:'still-private'}).password,'still-private');
 });

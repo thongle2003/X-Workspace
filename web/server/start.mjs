@@ -102,7 +102,7 @@ export function createProductionServer({ api, distRoot = path.join(webRoot, 'dis
 }
 
 export function productionAccess(env = process.env) {
-  const publicDemo = env.PUBLIC_DEMO === 'true';
+  const publicDemo = env.PUBLIC_DEMO === 'true' || env.RENDER === 'true' && env.PUBLIC_DEMO !== 'false';
   const password = publicDemo ? '' : env.SITE_PASSWORD || '';
   if (env.RENDER === 'true' && !password && !publicDemo) throw new Error('Set SITE_PASSWORD or explicitly enable PUBLIC_DEMO before publishing on Render.');
   return { publicDemo, password, publicOrigin: env.APP_ORIGIN || env.RENDER_EXTERNAL_URL || '' };
@@ -111,10 +111,10 @@ export function productionAccess(env = process.env) {
 export async function startProduction() {
   // Import after startup so the API can load local .env before reading settings.
   const { createAPI } = await import('./api.mjs');
-  const { publicOrigin, password } = productionAccess();
+  const { publicOrigin, password, publicDemo } = productionAccess();
   const port = Number(process.env.PORT || 10000);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be a valid port number.');
-  const server = createProductionServer({ api:createAPI({publicOrigin}), password, publicOrigin });
+  const server = createProductionServer({ api:createAPI({publicOrigin,publicDemo}), password, publicOrigin });
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '0.0.0.0', resolve); });
   console.log(`2G2BT production server listening on port ${port}`);
   let stopping = false;

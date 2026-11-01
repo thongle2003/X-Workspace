@@ -73,4 +73,6 @@ Các spec cũ ở tests/ cho bản localStorage được giữ để tham khảo
 
 ## Host miễn phí một tuần
 
-Đã có server production và Blueprint Render Free. Xem [hướng dẫn Render](../docs/HOST-RENDER.md). API và React chạy chung service, mật khẩu demo bảo vệ các cuộc gọi ModelAPI. File dữ liệu trên Render Free không được giữ qua restart/redeploy; dùng database ngoài nếu cần lưu bền.
+Đã có server production và Blueprint Render Free. Xem [hướng dẫn Render](../docs/HOST-RENDER.md). API và React chạy chung service, PUBLIC_DEMO mở link trực tiếp và khóa việc đổi gói để giữ hạn mức API. File dữ liệu trên Render Free không được giữ qua restart/redeploy; dùng database ngoài nếu cần lưu bền.
+
+Bản Render chia sẻ cho giảng viên bật `PUBLIC_DEMO=true`: mở link không cần mật khẩu. Hai tài khoản demo dùng chung ngân sách Free trên máy chủ; không cho nâng gói khi công khai.

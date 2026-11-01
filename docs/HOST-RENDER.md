@@ -9,7 +9,7 @@ Dịch vụ: [Render](https://render.com). Cấu hình trong `render.yaml` chọ
 3. Render đọc `render.yaml`. Kiểm tra service đang chọn **Free**, region Singapore.
 4. Nhập biến bí mật **AI_API_KEY** bằng khóa ModelAPI của bạn. Không ghi khóa vào GitHub và không gửi khóa trong chat.
 5. Chọn **Deploy Blueprint** và chờ build xong. Render cấp URL `https://...onrender.com`.
-6. Trong service → **Environment**, xem giá trị **SITE_PASSWORD** được Render tạo tự động. Khi mở website, nhập username **demo** và mật khẩu đó. Có thể chia sẻ mật khẩu riêng với người xem demo. Đây là khóa truy cập cho cả bản demo, không phải đăng nhập tài khoản người dùng.
+6. Mở URL được cấp và gửi trực tiếp cho giảng viên. `PUBLIC_DEMO=true` bỏ yêu cầu mật khẩu; hai vai trò thử nghiệm vẫn hoạt động. Bản công khai không cho đổi gói qua giao diện hoặc API, nhằm giữ chi phí trong hạn mức đã cấp.
 
 API key giữ phía máy chủ. `AI_CREDENTIALS_FILE` trên máy cá nhân không được đưa lên GitHub hoặc Render; hãy dùng `AI_API_KEY` trong Environment của Render.
 
@@ -37,7 +37,7 @@ Các biến Environment:
 | `AI_API_KEY` | Khóa bí mật của bạn |
 | `AI_MAX_OUTPUT_TOKENS` | `1024` |
 | `AI_REASONING_EFFORT` | `low` |
-| `SITE_PASSWORD` | Mật khẩu dài, riêng cho nhóm xem demo |
+| `PUBLIC_DEMO` | `true` — mở bản demo không cần mật khẩu |
 
 Render cung cấp `PORT` và `RENDER_EXTERNAL_URL` tự động. Máy chủ bind `0.0.0.0:$PORT`; chỉ chấp nhận API qua hostname đã cấu hình. Nếu dùng tên miền riêng, đặt `APP_ORIGIN=https://ten-mien-cua-ban` rồi redeploy. Không thêm đường dẫn phía sau origin.
 
@@ -47,7 +47,7 @@ Render cung cấp `PORT` và `RENDER_EXTERNAL_URL` tự động. Máy chủ bind
 - Render Free ngủ sau **15 phút không nhận truy cập**. Lần mở tiếp theo có thể chờ khoảng một phút.
 - Free dùng filesystem tạm. Dự án, CSV, tin nhắn và ngân sách lưu trong file JSON **có thể mất khi restart, redeploy hoặc service ngủ**. Vì vậy Free “không reset” chỉ giữ được trong vòng đời dữ liệu này; không thể bảo đảm qua lần host mất file. Nếu cần giữ dữ liệu và hạn mức xuyên suốt tuần, phải bổ sung database lưu bền ngoài service trước khi dùng dữ liệu cần giữ.
 - Không nhập hồ sơ tài chính cần bảo quản lâu dài vào bản Render dùng file tạm. Cấu hình này dành cho demo bằng dữ liệu mẫu.
-- **Phí gọi ModelAPI vẫn tính riêng**. Hosting miễn phí không cấp miễn phí token AI. Người có mật khẩu demo có thể đổi giữa hai tài khoản và gọi API trong hạn mức demo.
+- **Phí gọi ModelAPI vẫn tính riêng**. Hosting miễn phí không cấp miễn phí token AI. Người có link có thể đổi giữa hai tài khoản thử nghiệm và gọi API trong hạn mức Free dùng chung; việc nâng gói bị khóa trên máy chủ.
 - Sau restart, phiên làm việc được cấp lại; nếu tab còn báo hết phiên, tải lại trang.
 
 Tài liệu chính thức: [Render Free](https://render.com/docs/free), [deploy Node.js từ GitHub](https://render.com/docs/deploy-node-express-app), [biến môi trường mặc định](https://render.com/docs/environment-variables).
@@ -62,4 +62,4 @@ npm run test:server
 npm run start:prod
 ```
 
-Local production mở `http://127.0.0.1:10000`. `SITE_PASSWORD` được yêu cầu khi chạy trên Render. `/api/health` được mở cho health check; các trang và API khác đều qua mật khẩu khi cấu hình.
+Local production mở `http://127.0.0.1:10000`. Render Blueprint bật `PUBLIC_DEMO=true`, nên website và API không yêu cầu mật khẩu Basic. Quyền xem hồ sơ vẫn được kiểm tra theo phiên và quyết định duyệt của Startup. Nếu muốn dùng chế độ riêng, bỏ PUBLIC_DEMO và cấu hình SITE_PASSWORD.

@@ -23,5 +23,5 @@ services:
         value: low
       - key: AI_API_KEY
         sync: false
-      - key: SITE_PASSWORD
-        generateValue: true
+      - key: PUBLIC_DEMO
+        value: "true"

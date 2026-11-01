@@ -106,7 +106,7 @@ function ActivationDialog({ state, targetTier, billing, onClose, onConfirm }) {
   </div>;
 }
 
-export function PricingPage({ state, updateState, setNotice }) {
+export function PricingPage({ state, updateState, setNotice, canChangePlan = true }) {
   const selectedRole = state.role;
   const [billing, setBilling] = useState(state.subscriptions[state.role].billing);
   const [pending, setPending] = useState(null);
@@ -144,6 +144,7 @@ export function PricingPage({ state, updateState, setNotice }) {
   }
 
   return <div>
+    {!canChangePlan && <p className="mb-5 rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-sm leading-6 text-indigo-700">Bản demo công khai: bạn có thể xem các gói dịch vụ. Gói đang dùng được giữ cố định để kiểm soát ngân sách AI.</p>}
     <header className="mx-auto max-w-2xl text-center">
       <span className="inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-600"><span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />Gói dịch vụ</span>
       <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">Không gian cho bước tiếp theo.</h1>
@@ -168,7 +169,7 @@ export function PricingPage({ state, updateState, setNotice }) {
           <h2 className="text-xl font-bold tracking-tight text-slate-900">{plan.name}</h2>
           <p className="mt-2 min-h-12 text-sm leading-6 text-slate-500">{planDescriptions[selectedRole][tier]}</p>
           <div className="mb-6 mt-6"><div className="flex flex-wrap items-baseline gap-x-1.5"><strong className="text-3xl font-bold tracking-tight text-slate-900">{money(shownPrice)}<span className="ml-1 text-xl">₫</span></strong><span className="text-xs text-slate-400">{tier === 'free' ? 'miễn phí' : `/ ${billing === 'annual' ? 'năm' : 'tháng'}`}</span></div><p className="mt-2 min-h-4 text-xs text-slate-400">{tier === 'free' ? 'Bắt đầu với hạn mức dùng thử một lần' : billing === 'annual' ? `Tương đương ${money(shownPrice / 12)} ₫ / tháng` : 'Giá tham khảo'}</p></div>
-          <button type="button" disabled={isCurrent} onClick={() => setPending({role: state.role, tier})} className={cx('mb-6 w-full rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-default', isCurrent ? 'bg-slate-100 text-slate-400' : emphasized ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'border border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:text-indigo-600')}>{isCurrent ? 'Đang sử dụng' : tier === 'free' ? 'Chọn gói miễn phí' : isSavedTier ? 'Đổi chu kỳ dùng thử' : 'Dùng thử gói này'}</button>
+          <button type="button" disabled={isCurrent || !canChangePlan} onClick={() => setPending({role: state.role, tier})} className={cx('mb-6 w-full rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-default disabled:opacity-60', isCurrent ? 'bg-slate-100 text-slate-400' : emphasized ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'border border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:text-indigo-600')}>{isCurrent ? 'Đang sử dụng' : !canChangePlan ? 'Xem thông tin gói' : tier === 'free' ? 'Chọn gói miễn phí' : isSavedTier ? 'Đổi chu kỳ dùng thử' : 'Dùng thử gói này'}</button>
           <p className="border-t border-slate-100 pt-5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Quyền sử dụng</p>
           <ul className="mt-4 space-y-3">
             {features.map(([key, label, unit]) => <li key={key} className={cx('flex items-start gap-2.5 text-[13px] leading-5', key === 'export' && !plan.export ? 'text-slate-400' : 'text-slate-600')}><Check className={key === 'export' && !plan.export ? 'mt-0.5 text-slate-300' : 'mt-0.5 text-indigo-500'} /><span>{key === 'export' ? plan.export ? 'Xuất báo cáo phân tích' : 'Xem báo cáo trong ứng dụng' : key === 'aiTokens' || key === 'connections' ? featureValue(plan, key) : <><strong className="font-semibold text-slate-800">{featureValue(plan, key)}</strong> {key === 'workspaces' ? unit : label.toLowerCase()}</>}</span></li>)}

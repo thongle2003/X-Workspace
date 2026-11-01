@@ -101,12 +101,17 @@ export function createProductionServer({ api, distRoot = path.join(webRoot, 'dis
   return server;
 }
 
+export function productionAccess(env = process.env) {
+  const publicDemo = env.PUBLIC_DEMO === 'true';
+  const password = publicDemo ? '' : env.SITE_PASSWORD || '';
+  if (env.RENDER === 'true' && !password && !publicDemo) throw new Error('Set SITE_PASSWORD or explicitly enable PUBLIC_DEMO before publishing on Render.');
+  return { publicDemo, password, publicOrigin: env.APP_ORIGIN || env.RENDER_EXTERNAL_URL || '' };
+}
+
 export async function startProduction() {
   // Import after startup so the API can load local .env before reading settings.
   const { createAPI } = await import('./api.mjs');
-  const publicOrigin = process.env.APP_ORIGIN || process.env.RENDER_EXTERNAL_URL || '';
-  const password = process.env.SITE_PASSWORD || '';
-  if (process.env.RENDER === 'true' && !password) throw new Error('Set SITE_PASSWORD before publishing the demo on Render.');
+  const { publicOrigin, password } = productionAccess();
   const port = Number(process.env.PORT || 10000);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be a valid port number.');
   const server = createProductionServer({ api:createAPI({publicOrigin}), password, publicOrigin });

@@ -13,11 +13,11 @@ const reportResult = () => ({
 });
 const profile = {name:'Công ty riêng tư',industry:'SaaS',stage:'Seed',location:'TP.HCM',summary:'Thông tin công bố dành cho nhà đầu tư.',target:1000};
 
-async function fixture(t,{provider=async()=>reportResult(),chatProvider=async()=>({model:'gpt-6-astra',provider:'ModelAPI',requestId:'chat-http-test',text:'Hãy kiểm tra dòng tiền.',usage:{inputTokens:80,outputTokens:20,totalTokens:100}}),configured=true,publicOrigin=''}={}) {
+async function fixture(t,{provider=async()=>reportResult(),chatProvider=async()=>({model:'gpt-6-astra',provider:'ModelAPI',requestId:'chat-http-test',text:'Hãy kiểm tra dòng tiền.',usage:{inputTokens:80,outputTokens:20,totalTokens:100}}),configured=true,publicOrigin='',publicDemo=false}={}) {
   const store=createWorkflowStore();
   let time=Date.now();
   const config=()=>getAIConfig(configured?{AI_BASE_URL:'https://api.modelapi.vn/v1',AI_API_KEY:'mock-secret-not-real',AI_MODEL:'gpt-6-astra'}:{});
-  const handler=createAPI({store,config,provider,chatProvider,now:()=>time,publicOrigin});
+  const handler=createAPI({store,config,provider,chatProvider,now:()=>time,publicOrigin,publicDemo});
   const server=http.createServer((req,res)=>{void handler(req,res);});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const base=`http://127.0.0.1:${server.address().port}`;
@@ -168,4 +168,16 @@ test('hosted API permits only its configured HTTPS origin and ignores forged for
 });
 test('public origins must be exact HTTPS origins rather than wildcard or credential URLs',()=>{
   for(const publicOrigin of ['http://public.example','https://example.com/path','https://user:pass@example.com','https://example.com?key=value'])assert.throws(()=>createAPI({store:createWorkflowStore(),publicOrigin}));
+});
+
+
+test('public demo locks upgrades on the API and new sessions never refill Free tokens',async t=>{
+  const app=await fixture(t,{publicDemo:true});
+  const status=await app.request('/api/ai/status');assert.equal(status.body.publicDemo,true);assert.equal(status.body.allowPlanChanges,false);
+  const first=await app.session('founder');
+  for(const tier of ['free','plus','pro']){const denied=await app.action(first,{type:'change-plan',tier,billing:'monthly',publicDemo:false,allowPlanChanges:true});assert.equal(denied.status,403);}
+  assert.equal(app.store.snapshot('founder').plan.tier,'free');
+  const analysis=await app.request('/api/ai/analysis',{token:first,body:{csv:SAMPLE_CSV,name:'Test public demo'}});assert.equal(analysis.status,200);
+  const second=await app.session('founder');const current=await app.request('/api/workflow',{token:second});assert.equal(current.body.usage.used,700);assert.equal(current.body.usage.remaining,1300);
+  const investor=await app.session('investor');assert.equal((await app.action(investor,{type:'change-plan',tier:'pro'})).status,403);assert.equal(app.store.snapshot('investor').plan.tier,'free');
 });

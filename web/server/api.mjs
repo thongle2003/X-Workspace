@@ -15,7 +15,7 @@ async function json(req) {
   let size=0;const chunks=[];for await(const chunk of req){size+=chunk.length;if(size>2_200_000)throw fail(413,'FILE_SIZE','Dữ liệu vượt giới hạn 2 MB.');chunks.push(chunk);}
   try { const data=JSON.parse(Buffer.concat(chunks).toString('utf8'));if(!data||typeof data!=='object'||Array.isArray(data))throw new Error();return data; } catch { throw fail(400,'JSON','JSON phải là một đối tượng hợp lệ.'); }
 }
-export function createAPI({store=createWorkflowStore({filePath:process.env.WORKFLOW_DATA_FILE||path.resolve(webRoot,'../.runtime/workflow.json')}), config=()=>getAIConfig(), provider=generateFinancialReport, chatProvider=generateChatReply, now=()=>Date.now(), publicOrigin=process.env.APP_ORIGIN||process.env.RENDER_EXTERNAL_URL||''}={}) {
+export function createAPI({store=createWorkflowStore({filePath:process.env.WORKFLOW_DATA_FILE||path.resolve(webRoot,'../.runtime/workflow.json')}), config=()=>getAIConfig(), provider=generateFinancialReport, chatProvider=generateChatReply, now=()=>Date.now(), publicOrigin=process.env.APP_ORIGIN||process.env.RENDER_EXTERNAL_URL||'', publicDemo=process.env.PUBLIC_DEMO==='true'}={}) {
   const sessions=new Map();const inFlight=new Set();
   let hostedOrigin=null;
   if(publicOrigin){
@@ -34,7 +34,7 @@ export function createAPI({store=createWorkflowStore({filePath:process.env.WORKF
       if(!isLocal&&!isHosted)throw fail(403,'HOST','Tên miền chưa được cấu hình cho ứng dụng.');
       if(req.headers.origin){const origin=new URL(req.headers.origin);if(origin.host!==req.headers.host||!(isLocal&&hostAllowed(origin.hostname)||isHosted&&origin.origin===hostedOrigin))throw fail(403,'ORIGIN','Nguồn yêu cầu không hợp lệ.');}
       if(req.method==='GET'&&url.pathname==='/api/health')return send(res,200,{ok:true,mode:hostedOrigin?'hosted-demo':'local-demo'});
-      if(req.method==='GET'&&url.pathname==='/api/ai/status')return send(res,200,aiStatus(config()));
+      if(req.method==='GET'&&url.pathname==='/api/ai/status')return send(res,200,{...aiStatus(config()),publicDemo,allowPlanChanges:!publicDemo});
       if(req.method==='POST'&&url.pathname==='/api/demo/session'){
         const body=await json(req);const userId=body.role==='founder'?'founder':body.role==='investor'?'investor':null;
         if(!userId)throw fail(400,'ROLE','Vai trò không hợp lệ.');
@@ -46,7 +46,11 @@ export function createAPI({store=createWorkflowStore({filePath:process.env.WORKF
       const userId=actor(req);
       if(req.method==='GET'&&url.pathname==='/api/session')return send(res,200,{user:DEMO_USERS[userId]});
       if(req.method==='GET'&&url.pathname==='/api/workflow')return send(res,200,store.snapshot(userId));
-      if(req.method==='POST'&&url.pathname==='/api/workflow/actions')return send(res,200,store.act(userId,await json(req)));
+      if(req.method==='POST'&&url.pathname==='/api/workflow/actions'){
+        const action=await json(req);
+        if(publicDemo&&action.type==='change-plan')throw fail(403,'PUBLIC_DEMO_PLAN','Bản chia sẻ công khai giữ gói hiện tại để giới hạn chi phí AI. Bạn vẫn có thể xem bảng giá và trải nghiệm các tính năng trong hạn mức.');
+        return send(res,200,store.act(userId,action));
+      }
       const financial=url.pathname.match(/^\/api\/workflow\/workspaces\/([^/]+)\/financial$/);
       if(req.method==='GET'&&financial)return send(res,200,store.getFinancial(userId,decodeURIComponent(financial[1])));
       if(req.method==='POST'&&url.pathname==='/api/ai/analysis'){

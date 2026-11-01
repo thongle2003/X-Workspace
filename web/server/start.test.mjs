@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
-import { createProductionServer } from './start.mjs';
+import { createProductionServer, productionAccess } from './start.mjs';
 
 const credentials = password => `Basic ${Buffer.from(`demo:${password}`).toString('base64')}`;
 async function fixture(t, options = {}) {
@@ -78,4 +78,13 @@ test('public hostname is explicitly configured and unexpected hosts are denied',
 test('unexpected handler failures return a generic response', async t => {
   const app = await fixture(t,{api:async()=>{throw new Error('API_API_KEY=do-not-expose');}});
   const response = await app.raw('/api/test');assert.equal(response.status,500);assert.doesNotMatch(response.text,/do-not-expose/);
+});
+
+
+test('public demo deliberately opens HTML and API without a password even when an old password exists', async t=>{
+  const access=productionAccess({RENDER:'true',PUBLIC_DEMO:'true',SITE_PASSWORD:'old-private-password'});
+  assert.equal(access.password,'');assert.equal(access.publicDemo,true);
+  const app=await fixture(t,{password:access.password});
+  assert.equal((await app.raw('/')).status,200);assert.equal((await app.raw('/assets/app-hash.js')).status,200);assert.equal((await app.raw('/api/test')).status,200);
+  assert.throws(()=>productionAccess({RENDER:'true'}));assert.equal(productionAccess({RENDER:'true',SITE_PASSWORD:'still-private'}).password,'still-private');
 });

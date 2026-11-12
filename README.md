@@ -4,6 +4,8 @@
 
 Mã nguồn ứng dụng 2GOOD2BETRUE kết nối Startup với Nhà đầu tư, xây bằng React, Tailwind và Node.js. Giao diện có chế độ sáng và tối.
 
+**Xem trực tiếp:** [Bản Render của Thông](https://x-workspace-demo.onrender.com/). [Website dự phòng](https://x-workspace-backup.x-workspace.workers.dev) vẫn có thể mở nếu bản Render đang khởi động.
+
 **GitHub lưu mã nguồn, không tự chạy website hoặc API.** Nhánh `main` của repo này chứa bản đang phát triển. Để xem trên máy, chạy theo hướng dẫn bên dưới. Để có URL công khai chạy được cả API, cần triển khai Web Service từ **repo này** theo [hướng dẫn Render](docs/HOST-RENDER.md). Bản Cloudflare ở dưới là một deployment riêng và không tự cập nhật khi push GitHub.
 
 App hiện có hai luồng: URL mặc định chạy với API máy chủ; `?mode=demo` là bản thử lưu một phần dữ liệu trong trình duyệt. Phần case trên máy chủ cho tạo nháp và gửi vào trạng thái **chờ mở thanh toán**; đã công bố phí niêm yết 899.000đ/12 tháng nhưng chưa thu tiền, giao mentor hoặc công bố case cho Investor. Xem [trạng thái luồng case](docs/WORKFLOW-CASE-PRODUCTION.md).

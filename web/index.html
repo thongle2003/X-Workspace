@@ -3,10 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#090909">
-  <meta name="description" content="X Workspace by X Factor. Workspace kết nối startup và nhà đầu tư, phân tích tài chính và theo dõi danh mục. Prototype với các gói dịch vụ theo vai trò.">
-  <title>X Workspace · Đầu tư có cơ sở</title>
-  <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
+  <meta name="theme-color" content="#F3F4F6">
+  <script>try{document.documentElement.dataset.theme=localStorage.getItem('2g2bt-theme')==='dark'?'dark':'light'}catch{document.documentElement.dataset.theme='light'}document.querySelector('meta[name="theme-color"]').content=document.documentElement.dataset.theme==='dark'?'#111827':'#F3F4F6'</script>
+  <style>
+    html.logo-entrance-pending::before { content: ''; position: fixed; inset: 0; z-index: 2147483646; background: #F3F4F6; pointer-events: none; }
+    html[data-theme="dark"].logo-entrance-pending::before { background: #111827; }
+  </style>
+  <script>
+    try { if (sessionStorage.getItem('2g2bt-logo-entrance-seen') !== '1' && !matchMedia('(prefers-reduced-motion: reduce)').matches) document.documentElement.classList.add('logo-entrance-pending'); }
+    catch { document.documentElement.classList.add('logo-entrance-pending'); }
+    if (document.documentElement.classList.contains('logo-entrance-pending')) setTimeout(() => document.documentElement.classList.remove('logo-entrance-pending'), 10000);
+  </script>
+  <meta name="description" content="2GOOD2BETRUE kết nối startup và nhà đầu tư qua case gọi vốn, phân tích tài chính và theo dõi cơ hội đầu tư.">
+  <title>2GOOD2BETRUE · Kết nối đầu tư</title>
+  <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg?v=2g2bt-mark">
 </head>
 <body>
   <div id="app"></div>

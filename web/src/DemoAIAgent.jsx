@@ -8,20 +8,20 @@ const welcome = {
   text: 'Chào bạn! Mình giúp bạn tìm đúng công cụ trong X Workspace. Bạn muốn bắt đầu từ đâu?',
 };
 
-function answer(question, state) {
+export function demoAnswer(question, state) {
   const text = question.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
-  if (/tro chuyen|kenh|tin nhan|chat/.test(text)) return {text:'Mở mục Trò chuyện, chọn workspace rồi bấm “Tạo cuộc trò chuyện”. Lịch sử được lưu trên thiết bị; bản demo chưa đồng bộ nhóm.',href:'#/conversations',label:'Mở cuộc trò chuyện'};
+  if (/tro chuyen|kenh|tin nhan|chat/.test(text)) return {text:'Cuộc trò chuyện Workspace vẫn được lưu trên thiết bị; chưa đồng bộ nhóm. Mở không gian cá nhân để tạo kênh hoặc chọn workspace của dự án.',href:state.role === 'investor' ? '#/conversations/personal' : '#/conversations',label:'Mở trò chuyện Workspace'};
   if (/token|goi|gia|han muc|nang cap/.test(text)) {
     const snapshot = structuredClone(state);
     const plan = getPlan(snapshot);
     const quota = getUsage(snapshot, 'aiTokens');
-    return { text: `Bạn đang dùng ${plan.name}, còn ${money(quota.remaining)} token mô phỏng. ${plan.tier === 'free' ? 'Token Free được cấp một lần, không tự reset.' : 'Token gói trả phí reset vào thứ Hai theo giờ Việt Nam.'} Hướng dẫn trong cửa sổ này không trừ token.`, href: '#/pricing', label: 'Xem gói dịch vụ' };
+    return { text: `Bạn đang dùng ${plan.name}, còn ${money(quota.remaining)} token ước tính. ${plan.tier === 'free' ? 'Token Free được cấp một lần, không tự reset.' : 'Token gói trả phí reset vào thứ Hai theo giờ Việt Nam.'} Hướng dẫn trong cửa sổ này không trừ token.`, href: '#/pricing', label: 'Xem gói dịch vụ' };
   }
   if (/phan tich|tai chinh|csv|doanh thu|dong tien|runway/.test(text)) {
-    return { text: 'Mở Phân tích tài chính, tải CSV hoặc chọn dữ liệu mẫu LotusPay. Bạn có thể xem token ước tính trước khi chạy, sau đó xem các chỉ báo và công thức tính trong báo cáo.', href: '#/analysis', label: 'Mở phân tích tài chính' };
+    return { text: 'Mở Phân tích tài chính, tải CSV hoặc chọn CSV LotusPay. Bạn có thể xem token ước tính trước khi chạy, sau đó xem các chỉ báo và công thức tính trong báo cáo.', href: '#/analysis', label: 'Mở phân tích tài chính' };
   }
   if (/workspace|du an|cong viec|ghi chu|ho so/.test(text)) {
-    if (state.role === 'investor') return { text: 'Bạn có thể mở các workspace hiện có để xem công việc, tài liệu và ghi chú. Để tạo workspace mới, hãy chọn tài khoản Startup demo ở thanh trên cùng.', href: '#/workspace', label: 'Mở workspace' };
+    if (state.role === 'investor') return { text: 'Bạn có thể mở các workspace hiện có để xem công việc, tài liệu và ghi chú. Để tạo workspace mới, hãy chọn tài khoản Startup ở thanh trên cùng.', href: '#/workspace', label: 'Mở workspace' };
     return { text: 'Tạo workspace để tập hợp mục tiêu, công việc, tài liệu và ghi chú của dự án. Chọn “Tạo workspace”, nhập tên và mục tiêu để bắt đầu; hạn mức theo gói của bạn sẽ được kiểm tra khi lưu.', href: '#/workspace/new', label: 'Tạo workspace mới' };
   }
   if (/startup|marketplace|kham pha|co hoi/.test(text)) {
@@ -30,12 +30,12 @@ function answer(question, state) {
   if (/danh muc|khoan dau tu/.test(text)) {
     return state.role === 'investor'
       ? { text: 'Trong Danh mục đầu tư, bạn có thể ghi nhận khoản đầu tư và cập nhật số liệu theo tháng để theo dõi.', href: '#/portfolio', label: 'Mở danh mục đầu tư' }
-      : { text: 'Danh mục đầu tư dành cho vai trò Nhà đầu tư. Bạn có thể chuyển sang tài khoản Nhà đầu tư demo ở thanh trên cùng; với tài khoản Startup demo hiện tại, hãy bắt đầu bằng workspace gọi vốn.', href: '#/workspace', label: 'Mở workspace' };
+      : { text: 'Danh mục đầu tư dành cho vai trò Nhà đầu tư. Bạn có thể chuyển sang tài khoản Nhà đầu tư ở thanh trên cùng; với tài khoản Startup hiện tại, hãy bắt đầu bằng workspace gọi vốn.', href: '#/workspace', label: 'Mở workspace' };
   }
-  return { text: 'Bản demo hiện hỗ trợ hướng dẫn tính năng, chưa trả lời tự do bằng AI. Bạn có thể hỏi về phân tích CSV, tạo workspace, tìm startup hoặc ngân sách token bằng các gợi ý bên dưới.' };
+  return { text: 'Trợ lý hiện hỗ trợ hướng dẫn tính năng, chưa trả lời tự do bằng AI. Bạn có thể hỏi về phân tích CSV, tạo workspace, tìm startup hoặc ngân sách token bằng các gợi ý bên dưới.' };
 }
 
-export function AIAgent({ state, open, onOpen, onClose, raised = false, workspaceMode = false }) {
+export function AIAgent({ state, open, onOpen, onClose, raised = false, workspaceMode = false, showLauncher = true }) {
   const dialogRef = useRef(null);
   const inputRef = useRef(null);
   const launcherRef = useRef(null);
@@ -68,16 +68,16 @@ export function AIAgent({ state, open, onOpen, onClose, raised = false, workspac
   function send(value) {
     const question = value.trim();
     if (!question) return;
-    setMessages(current => [...current, { role: 'user', text: question }, { role: 'assistant', ...answer(question, state) }]);
+    setMessages(current => [...current, { role: 'user', text: question }, { role: 'assistant', ...demoAnswer(question, state) }]);
     setDraft('');
     inputRef.current?.focus();
   }
 
   return <>
-    <button ref={launcherRef} type="button" aria-label="Mở AI Agent" aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? 'ai-agent-panel' : undefined} onClick={onOpen}
+    {showLauncher && <button ref={launcherRef} type="button" aria-label="Mở AI Agent" aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? 'ai-agent-panel' : undefined} onClick={onOpen}
       className={'fixed right-4 z-30 flex items-center rounded-2xl border border-white/20 bg-indigo-600 text-sm font-semibold text-white shadow-xl shadow-indigo-950/25 transition hover:-translate-y-1 hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-500 sm:right-6 '+(workspaceMode?'h-12 w-12 justify-center p-0 bottom-[200px]':'min-h-14 gap-2.5 px-4 py-3 '+(raised?'bottom-28':'bottom-[calc(1.25rem+env(safe-area-inset-bottom))]'))}>
       <Bot size={25} strokeWidth={1.8} aria-hidden="true" /><span className={workspaceMode?'sr-only':undefined}>AI Agent</span>{!workspaceMode&&<Sparkles size={14} className="text-indigo-200" aria-hidden="true" />}
-    </button>
+    </button>}
     {open && <dialog ref={dialogRef} id="ai-agent-panel" aria-labelledby="ai-agent-title" aria-describedby="ai-agent-description"
       onCancel={event => { event.preventDefault(); onClose(); }}
       onClick={event => { if (event.target === event.currentTarget) { const bounds = event.currentTarget.getBoundingClientRect(); if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) onClose(); } }}
@@ -85,7 +85,7 @@ export function AIAgent({ state, open, onOpen, onClose, raised = false, workspac
       <div className="flex max-h-[calc(100dvh-2rem)] flex-col">
         <header className="flex shrink-0 items-start gap-3 bg-[#171717] p-5 text-white">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-indigo-500"><Bot size={25} aria-hidden="true" /></span>
-          <div className="min-w-0 flex-1"><h2 id="ai-agent-title" className="text-base font-semibold">AI Agent</h2><p id="ai-agent-description" className="mt-1 text-[11px] leading-5 text-indigo-100">Bản demo hướng dẫn · Chưa kết nối AI thật</p></div>
+          <div className="min-w-0 flex-1"><h2 id="ai-agent-title" className="text-base font-semibold">AI Agent</h2><p id="ai-agent-description" className="mt-1 text-[11px] leading-5 text-indigo-100">Trợ lý hướng dẫn · Chưa kết nối AI</p></div>
           <button type="button" onClick={onClose} aria-label="Đóng AI Agent" className="rounded-lg p-1.5 text-slate-300 hover:bg-white/10 hover:text-white"><X size={19} aria-hidden="true" /></button>
         </header>
         <div ref={logRef} role="log" aria-label="Cuộc trò chuyện với AI Agent" aria-live="polite" className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-5 sm:max-h-[45dvh]">

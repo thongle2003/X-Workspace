@@ -13,8 +13,12 @@ const founderPlan = (tier, price, aiTokens, workspaces, tasks, documents, export
   portfolio:0, watchlist:0, compare:0, connections:0
 });
 const investorPlan = (tier, price, aiTokens, workspaces, tasks, documents, portfolio, watchlist, compare, connections, exports) => ({
-  tier, role:'investor', name:`Investor ${tier === 'free' ? 'Free' : tier === 'plus' ? 'Analyst' : 'Pro'}`,
-  price, aiTokens, workspaces, tasks, documents, portfolio, watchlist, compare, connections, export:exports
+  tier, role:'investor', name:`Investor ${tier === 'free' ? 'Trial' : tier === 'plus' ? 'Basic' : 'Pro'}`,
+  price, annualPrice:tier === 'plus' ? 3999000 : tier === 'pro' ? 6999000 : 0,
+  trialMonths:tier === 'free' ? 2 : null,
+  reportCadence:tier === 'free' ? '1 lần/quý' : tier === 'plus' ? '1 lần/tháng' : '2–3 lần/tháng',
+  annualEventsMap:tier === 'pro',
+  aiTokens, workspaces, tasks, documents, portfolio, watchlist, compare, connections, export:exports
 });
 export const ROLE_PLANS = {
   founder: {
@@ -24,13 +28,13 @@ export const ROLE_PLANS = {
   },
   investor: {
     free: investorPlan('free',0,4000,0,10,5,3,3,2,2,false),
-    plus: investorPlan('plus',299000,40000,0,50,30,10,15,3,10,true),
-    pro: investorPlan('pro',699000,120000,0,200,100,30,50,6,30,true),
+    plus: investorPlan('plus',399000,20_000_000,0,50,30,10,5,3,10,true),
+    pro: investorPlan('pro',699000,30_000_000,0,200,100,50,20,6,30,true),
   },
 };
 const roles = ['founder','investor'];
 const emptyUsage = () => ({aiTokens:0,analyses:0,connections:0});
-const newLedger = date => ({free:emptyUsage(),paid:{week:weekKey(date),...emptyUsage()}});
+const newLedger = (date,role) => ({free:emptyUsage(),paid:role==='investor'?{month:monthKey(date),...emptyUsage()}:{week:weekKey(date),...emptyUsage()}});
 // Weeks start Monday at 00:00 Vietnam time (Sunday 17:00 UTC).
 export function weekKey(date=new Date()) {
   const local = new Date(date.getTime()+7*60*60*1000);
@@ -40,6 +44,7 @@ export function weekKey(date=new Date()) {
 export function nextResetAt(state,date=new Date()) {
   ensurePlanState(state,date);
   if(state.subscriptions[state.role].tier==='free') return null;
+  if(state.role==='investor')return new Date(Date.UTC(Number(monthKey(date).slice(0,4)),Number(monthKey(date).slice(5,7)),1)-7*3600000).toISOString();
   return new Date(Date.parse(`${weekKey(date)}T00:00:00+07:00`)+7*24*60*60*1000).toISOString();
 }
 // Approximate tokens: 3 serialized characters/token + 256 prompt tokens;
@@ -67,7 +72,7 @@ function ensurePlanState(state,date=new Date()) {
     if(state.plan === 'startup') state.subscriptions.founder = {tier:'plus',billing:state.billing === 'annual' ? 'annual' : 'monthly'};
     if(state.plan === 'investor') state.subscriptions.investor = {tier:'pro',billing:state.billing === 'annual' ? 'annual' : 'monthly'};
     const migratedUsage={...state.usage};
-    state.usageByRole = {founder:newLedger(date),investor:newLedger(date)};
+    state.usageByRole = {founder:newLedger(date,'founder'),investor:newLedger(date,'investor')};
     for(const w of state.workspaces || []) w.role ||= legacyOwner;
     for(const r of state.reports || []) r.role ||= state.workspaces?.find(w=>w.id===r.workspaceId)?.role || legacyOwner;
     const bucket=state.subscriptions[legacyOwner].tier==='free' ? 'free' : 'paid';
@@ -79,7 +84,7 @@ function ensurePlanState(state,date=new Date()) {
     const previous=state.usageByRole?.[role];
     if(!previous?.free || !previous?.paid) {
       state.usageByRole ||= {};
-      state.usageByRole[role]=newLedger(date);
+      state.usageByRole[role]=newLedger(date,role);
       const bucket=state.subscriptions[role].tier==='free' ? 'free' : 'paid';
       Object.assign(state.usageByRole[role][bucket],previous||emptyUsage(),{aiTokens:legacyTokens(previous,state.reports.filter(r=>r.role===role),bucket==='free')});
       if(bucket==='free') state.usageByRole[role].free.connections=Math.max(state.usageByRole[role].free.connections,(state.requests||[]).filter(r=>(r.role||'investor')===role).length);
@@ -91,9 +96,9 @@ function projectActivePlan(state,date=new Date()) {
   const selected = state.subscriptions[state.role];
   state.plan = selected.tier === 'free' ? 'free' : state.role === 'founder' ? 'startup' : 'investor';
   state.billing = selected.billing;
-  const period=selected.tier==='free' ? 'lifetime' : 'weekly';
+  const period=selected.tier==='free' ? 'lifetime' : state.role==='investor' ? 'monthly' : 'weekly';
   state.usage = state.usageByRole[state.role][selected.tier==='free'?'free':'paid'];
-  Object.assign(state.usage,{period,month:monthKey(date),resetAt:period==='lifetime'?null:new Date(Date.parse(`${state.usage.week}T00:00:00+07:00`)+7*24*60*60*1000).toISOString()});
+  Object.assign(state.usage,{period,month:monthKey(date),resetAt:period==='lifetime'?null:nextResetAt(state,date)});
   return state;
 }
 export function getPlan(state) {
@@ -258,18 +263,28 @@ export function applyAction(state,action) {
 }
 export function monthKey(date=new Date()) { return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Ho_Chi_Minh',year:'numeric',month:'2-digit'}).format(date).slice(0,7); }
 export const money = n => new Intl.NumberFormat('vi-VN').format(Math.round(n));
+export function capitalAmount(millions) {
+  const value = Number(millions);
+  if (!Number.isFinite(value) || value < 0) return 'Chưa công bố';
+  const format = number => new Intl.NumberFormat('vi-VN', {maximumFractionDigits:3}).format(number);
+  if (value < 1) return `${format(Math.round(value * 1_000_000))} ₫`;
+  if (value < 1000) return `${format(value)} triệu ₫`;
+  const billions = Math.floor(value / 1000);
+  const remainder = Number((value - billions * 1000).toFixed(3));
+  return `${format(billions)} tỷ${remainder ? ` ${format(remainder)} triệu` : ''} ₫`;
+}
 export const pct = n => n===null || !Number.isFinite(n) ? 'N/A' : `${n>0?'+':''}${n.toFixed(1).replace('.',',')}%`;
 export const escapeHTML = v => String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function csvCell(v) { const s=String(v??''); const safe=/^[=+@\-\t\r]/.test(s)?`'${s}`:s; return `"${safe.replace(/"/g,'""')}"`; }
 export function toCSV(rows) { return '\uFEFF'+rows.map(row=>row.map(csvCell).join(',')).join('\r\n'); }
 export const uid = prefix => `${prefix}-${globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2)}`;
 const STARTUPS = [
-  {id:'lotus',name:'LotusPay',mark:'L',color:'#6a56d9',industry:'Fintech',stage:'Seed',location:'TP.HCM',tagline:'Hạ tầng thanh toán cho doanh nghiệp nhỏ.',description:'API thu hộ và đối soát giao dịch giúp SME quản lý thanh toán đa kênh. Startup và các số liệu dưới đây là dữ liệu hư cấu dùng để thử nghiệm.',target:8000,raised:3200,revenue:480,growth:12.9,runway:34,docs:7,totalDocs:8,users:'240 doanh nghiệp',founded:2024,team:12},
-  {id:'verda',name:'Verda',mark:'v',color:'#15836c',industry:'Climate Tech',stage:'Pre-seed',location:'Hà Nội',tagline:'Đo lường phát thải, bắt đầu từ chuỗi cung ứng.',description:'Công cụ tập hợp dữ liệu phát thải và xây báo cáo cho nhà cung ứng. Dữ liệu minh họa, chưa kiểm toán.',target:5000,raised:1750,revenue:155,growth:8.4,runway:10,docs:6,totalDocs:8,users:'38 nhà cung ứng',founded:2025,team:8},
-  {id:'edunova',name:'EduNova',mark:'e',color:'#ce7841',industry:'Edtech',stage:'Seed',location:'Đà Nẵng',tagline:'Học theo năng lực, tiến bộ theo từng ngày.',description:'Nền tảng học tập và quản lý bài tập cho trung tâm ngoại ngữ. Dữ liệu minh họa, chưa kiểm toán.',target:6000,raised:4200,revenue:320,growth:9.8,runway:14,docs:8,totalDocs:8,users:'65 trung tâm',founded:2023,team:18},
-  {id:'medflow',name:'MedFlow',mark:'m',color:'#4e81b1',industry:'Healthtech',stage:'Seed',location:'TP.HCM',tagline:'Một luồng vận hành cho phòng khám.',description:'Phần mềm lịch hẹn và quản lý vận hành phòng khám tư. Dữ liệu minh họa, chưa kiểm toán.',target:10000,raised:2500,revenue:250,growth:6.2,runway:8,docs:5,totalDocs:8,users:'52 phòng khám',founded:2024,team:14},
-  {id:'supply',name:'SupplyOS',mark:'s',color:'#8664ac',industry:'SaaS',stage:'Pre-seed',location:'Hà Nội',tagline:'Quản lý tồn kho cho thương hiệu đang lớn.',description:'Bảng điều khiển tồn kho và mua hàng cho thương hiệu bán lẻ. Dữ liệu minh họa, chưa kiểm toán.',target:4000,raised:800,revenue:110,growth:15.2,runway:11,docs:6,totalDocs:8,users:'90 cửa hàng',founded:2025,team:7},
-  {id:'greencart',name:'GreenCart',mark:'g',color:'#70924d',industry:'E-commerce',stage:'Seed',location:'TP.HCM',tagline:'Thực phẩm địa phương, chuỗi cung ứng ngắn.',description:'Kết nối hộ sản xuất với cửa hàng thực phẩm. Dữ liệu minh họa, chưa kiểm toán.',target:7000,raised:2800,revenue:620,growth:-3.2,runway:5,docs:4,totalDocs:8,users:'120 cửa hàng',founded:2023,team:22}
+  {id:'lotus',name:'LotusPay',mark:'L',color:'#6a56d9',industry:'Fintech',stage:'Seed',location:'TP.HCM',tagline:'Hạ tầng thanh toán cho doanh nghiệp nhỏ.',description:'API thu hộ và đối soát giao dịch giúp SME quản lý thanh toán đa kênh. ',target:8000,raised:3200,revenue:480,growth:12.9,runway:34,docs:7,totalDocs:8,users:'240 doanh nghiệp',founded:2024,team:12},
+  {id:'verda',name:'Verda',mark:'v',color:'#15836c',industry:'Climate Tech',stage:'Pre-seed',location:'Hà Nội',tagline:'Đo lường phát thải, bắt đầu từ chuỗi cung ứng.',description:'Công cụ tập hợp dữ liệu phát thải và xây báo cáo cho nhà cung ứng. ',target:5000,raised:1750,revenue:155,growth:8.4,runway:10,docs:6,totalDocs:8,users:'38 nhà cung ứng',founded:2025,team:8},
+  {id:'edunova',name:'EduNova',mark:'e',color:'#ce7841',industry:'Edtech',stage:'Seed',location:'Đà Nẵng',tagline:'Học theo năng lực, tiến bộ theo từng ngày.',description:'Nền tảng học tập và quản lý bài tập cho trung tâm ngoại ngữ. ',target:6000,raised:4200,revenue:320,growth:9.8,runway:14,docs:8,totalDocs:8,users:'65 trung tâm',founded:2023,team:18},
+  {id:'medflow',name:'MedFlow',mark:'m',color:'#4e81b1',industry:'Healthtech',stage:'Seed',location:'TP.HCM',tagline:'Một luồng vận hành cho phòng khám.',description:'Phần mềm lịch hẹn và quản lý vận hành phòng khám tư. ',target:10000,raised:2500,revenue:250,growth:6.2,runway:8,docs:5,totalDocs:8,users:'52 phòng khám',founded:2024,team:14},
+  {id:'supply',name:'SupplyOS',mark:'s',color:'#8664ac',industry:'SaaS',stage:'Pre-seed',location:'Hà Nội',tagline:'Quản lý tồn kho cho thương hiệu đang lớn.',description:'Bảng điều khiển tồn kho và mua hàng cho thương hiệu bán lẻ. ',target:4000,raised:800,revenue:110,growth:15.2,runway:11,docs:6,totalDocs:8,users:'90 cửa hàng',founded:2025,team:7},
+  {id:'greencart',name:'GreenCart',mark:'g',color:'#70924d',industry:'E-commerce',stage:'Seed',location:'TP.HCM',tagline:'Thực phẩm địa phương, chuỗi cung ứng ngắn.',description:'Kết nối hộ sản xuất với cửa hàng thực phẩm. ',target:7000,raised:2800,revenue:620,growth:-3.2,runway:5,docs:4,totalDocs:8,users:'120 cửa hàng',founded:2023,team:22}
 ];
 export const SAMPLE_CSV = 'period,revenue,cogs,opex,cash,operating_cash_flow,receivables\n2026-04,280,98,260,2200,-78,84\n2026-05,310,108.5,270,2115,-85,93\n2026-06,345,120.75,280,2045,-70,104\n2026-07,380,133,290,1980,-65,114\n2026-08,425,148.75,310,1925,-55,128\n2026-09,480,168,330,1875,-50,144';
 function initialState() {return {version:1,role:'investor',plan:'free',billing:'monthly',usage:{month:monthKey(),analyses:0,connections:0},startups:structuredClone(STARTUPS),watchlist:['lotus','verda'],compare:[],requests:[],reports:[],portfolio:[{id:'p-lotus',startupId:'lotus',invested:500,ownership:2,date:'2026-04-01',updates:[{period:'2026-07',revenue:380,cash:1980,valuation:25000},{period:'2026-08',revenue:425,cash:1925,valuation:26000},{period:'2026-09',revenue:480,cash:1875,valuation:27500}]}],workspaces:[{id:'w-lotus',name:'LotusPay · Thẩm định vòng Seed',startupId:'lotus',goal:'Rà soát dòng tiền và hoàn thiện hồ sơ trước buổi gặp founder.',tasks:[{id:'t1',title:'Kiểm tra doanh thu và công nợ',status:'todo',owner:'Minh Khoa'},{id:'t2',title:'Đọc pitch deck và mô hình doanh thu',status:'doing',owner:'Minh Khoa'},{id:'t3',title:'Thu thập báo cáo 6 tháng',status:'done',owner:'Minh Khoa'}],notes:'Cần làm rõ khả năng thu hồi công nợ và giả định tăng trưởng.',documents:[]}],activeWorkspace:'w-lotus',events:[],responses:[],onboarded:true};}
@@ -277,7 +292,11 @@ export function freshState() { return refreshUsage(initialState()); }
 export function refreshUsage(state, date=new Date()) {
   ensurePlanState(state,date);
   const week=weekKey(date);
-  for(const role of roles) if(state.usageByRole[role].paid.week!==week) state.usageByRole[role].paid={week,...emptyUsage()};
+  if(state.usageByRole.founder.paid.week!==week) state.usageByRole.founder.paid={week,...emptyUsage()};
+  const month=monthKey(date),paid=state.usageByRole.investor.paid;
+  const monthStart=Date.parse(`${month}-01T00:00:00+07:00`);
+  const legacyWeekStart=paid.week?Date.parse(`${paid.week}T00:00:00+07:00`):NaN;
+  if(paid.month!==month)state.usageByRole.investor.paid={month,...(legacyWeekStart<=date.getTime()&&legacyWeekStart+7*86400000>monthStart?{aiTokens:paid.aiTokens,analyses:paid.analyses,connections:paid.connections}:emptyUsage())};
   return projectActivePlan(state,date);
 }
 export function canUse(state,kind,workspaceId) { return getUsage(state,kind,workspaceId).allowed; }
@@ -289,7 +308,7 @@ export function parseCSV(text) {
   if(quoted)throw new Error('CSV có dấu ngoặc kép chưa đóng.');row.push(cell.trim());if(row.some(Boolean))records.push(row);
   if(records.length<3||records.length>61)throw new Error('Cần từ 2 đến 60 kỳ dữ liệu theo tháng.');
   const required=['period','revenue','cogs','opex','cash','operating_cash_flow','receivables']; const headers=records.shift().map(v=>v.toLowerCase());
-  for(const h of required)if(!headers.includes(h))throw new Error(`Thiếu cột ${h}. Hãy sử dụng tệp CSV mẫu.`);
+  for(const h of required)if(!headers.includes(h))throw new Error(`Thiếu cột ${h}. Hãy kiểm tra định dạng CSV.`);
   if(new Set(headers).size!==headers.length)throw new Error('Tên cột bị trùng.');
   const seen=new Set();const result=records.map((r,i)=>{if(r.length!==headers.length)throw new Error(`Dòng ${i+2}: số cột không khớp.`);const obj={};for(const h of required){const raw=r[headers.indexOf(h)];if(h==='period'){if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(raw))throw new Error(`Dòng ${i+2}: kỳ phải có dạng YYYY-MM.`);if(seen.has(raw))throw new Error(`Kỳ ${raw} bị trùng.`);seen.add(raw);obj[h]=raw;}else{if(raw===''||!/^[-+]?\d+(\.\d+)?$/.test(raw))throw new Error(`Dòng ${i+2}: ${h} phải là số, dùng dấu chấm thập phân.`);const n=Number(raw);if(!Number.isFinite(n)||Math.abs(n)>1e12)throw new Error(`Dòng ${i+2}: số liệu vượt phạm vi.`);if(h!=='operating_cash_flow'&&n<0)throw new Error(`Dòng ${i+2}: ${h} không được âm.`);obj[h]=n;}}return obj;});
   result.sort((a,b)=>a.period.localeCompare(b.period));for(let i=1;i<result.length;i++){const [ay,am]=result[i-1].period.split('-').map(Number);const [by,bm]=result[i].period.split('-').map(Number);if(by*12+bm-(ay*12+am)!==1)throw new Error('Các kỳ cần liên tiếp theo tháng để tính dòng tiền chính xác.');}return result;
@@ -297,7 +316,7 @@ export function parseCSV(text) {
 export function analyze(rows) {
   const latest=rows.at(-1), previous=rows.at(-2), trailing=rows.slice(-3);const avgCFO=trailing.reduce((a,r)=>a+r.operating_cash_flow,0)/trailing.length;const burn=Math.max(0,-avgCFO);const runway=burn>0?latest.cash/burn:null;const margin=latest.revenue>0?(latest.revenue-latest.cogs)/latest.revenue*100:null;const growth=previous.revenue>0?(latest.revenue/previous.revenue-1)*100:null;const arGrowth=previous.receivables>0?(latest.receivables/previous.receivables-1)*100:null;
   const flags=[];if(runway!==null&&runway<6)flags.push({level:'high',title:'Runway dưới 6 tháng',detail:`Tiền mặt hiện tại chỉ đủ khoảng ${runway.toFixed(1)} tháng nếu giữ mức đốt tiền trung bình ${trailing.length} tháng gần nhất.`});
-  if(margin!==null&&margin<20)flags.push({level:'medium',title:'Biên lợi nhuận gộp dưới 20%',detail:'Rà soát giá vốn và cơ cấu doanh thu. Ngưỡng minh họa này cần hiệu chỉnh theo ngành.'});
+  if(margin!==null&&margin<20)flags.push({level:'medium',title:'Biên lợi nhuận gộp dưới 20%',detail:'Rà soát giá vốn và cơ cấu doanh thu. Ngưỡng này cần hiệu chỉnh theo ngành.'});
   if(growth!==null&&growth<0)flags.push({level:'medium',title:'Doanh thu giảm so với tháng trước',detail:'Hỏi thêm về mùa vụ, khách hàng rời bỏ và thời điểm ghi nhận doanh thu.'});
   if(growth!==null&&growth>100)flags.push({level:'medium',title:'Doanh thu tăng đột biến trên 100%',detail:'Đối chiếu hóa đơn và tính lặp lại của doanh thu. Tăng trưởng cao tự nó không chứng minh bất thường.'});
   if(arGrowth!==null&&growth!==null&&arGrowth-growth>20)flags.push({level:'high',title:'Công nợ tăng nhanh hơn doanh thu',detail:'Tăng trưởng khoản phải thu cao hơn tăng trưởng doanh thu trên 20 điểm %. Cần kiểm tra kỳ hạn và khả năng thu hồi.'});
@@ -327,7 +346,7 @@ export function validateState(s) {
       for(const bucket of buckets) {
         if(!bucket || ['analyses','connections'].some(key=>!Number.isSafeInteger(bucket[key]) || bucket[key]<0) || (bucket.aiTokens!==undefined && (!Number.isSafeInteger(bucket.aiTokens) || bucket.aiTokens<0))) throw new Error('Bộ đếm sử dụng không hợp lệ.');
       }
-      if(ledger.paid && !/^\d{4}-\d{2}-\d{2}$/.test(ledger.paid.week)) throw new Error('Tuần sử dụng không hợp lệ.');
+      if(ledger.paid && (role==='founder'?!/^\d{4}-\d{2}-\d{2}$/.test(ledger.paid.week):!/^\d{4}-(0[1-9]|1[0-2])$/.test(ledger.paid.month||'')&&!/^\d{4}-\d{2}-\d{2}$/.test(ledger.paid.week||''))) throw new Error('Kỳ sử dụng không hợp lệ.');
     }
   }
   return refreshUsage(s);

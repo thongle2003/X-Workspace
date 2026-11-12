@@ -44,7 +44,9 @@ export function createProductionServer({ api, distRoot = path.join(webRoot, 'dis
   if (typeof password !== 'string' || /[\r\n]/.test(password)) throw new Error('SITE_PASSWORD is invalid.');
   const origin = checkedOrigin(publicOrigin);
   const publicHost = origin ? new URL(origin).host : '';
-  const root = fs.realpathSync(distRoot);
+  // Match the canonical path returned by the asynchronous realpath used below.
+  // On Windows, realpathSync can retain an 8.3 directory alias while realpath expands it.
+  const root = fs.realpathSync.native(distRoot);
   if (!fs.statSync(path.join(root, 'index.html')).isFile()) throw new Error('Frontend build missing. Run npm run build before starting the production server.');
   const expectedCredentials = password ? digest(`demo:${password}`) : null;
 
@@ -72,7 +74,7 @@ export function createProductionServer({ api, distRoot = path.join(webRoot, 'dis
       const pathname = requestPath(req.url);
       if (pathname === null) return writeJSON(req, res, 404, { message:'Không tìm thấy.' });
       if (pathname === '/api/health' && ['GET', 'HEAD'].includes(req.method)) return writeJSON(req, res, 200, { ok:true });
-      if (!authenticated(req)) return writeJSON(req, res, 401, { message:'Nhập tài khoản demo và mật khẩu truy cập để tiếp tục.' }, { 'WWW-Authenticate':'Basic realm="2G2BT demo", charset="UTF-8"' });
+      if (!authenticated(req)) return writeJSON(req, res, 401, { message:'Nhập tài khoản và mật khẩu truy cập để tiếp tục.' }, { 'WWW-Authenticate':'Basic realm="2G2BT", charset="UTF-8"' });
       if (pathname === '/api' || pathname.startsWith('/api/')) {
         await api(req, res, () => writeJSON(req, res, 404, { message:'Không tìm thấy API.' }));
         if (!res.headersSent && !res.writableEnded) writeJSON(req, res, 404, { message:'Không tìm thấy API.' });

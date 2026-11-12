@@ -1,1 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="17" fill="#090909"/><path d="M17 16h11l19 32H36L17 16Zm19 0h11L28 48H17l19-32Z" fill="#fff"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Biểu tượng 2GOOD2BETRUE">
+  <rect width="64" height="64" rx="14" fill="#111827"/>
+  <path d="M16 25 L16 12 C16 6 46 6 46 12 L46 18 C46 24 36 28 26 33 C19 36 16 40 16 44 L16 57 L49 57" fill="none" stroke="#F3F4F6" stroke-width="4.5" stroke-linecap="square" stroke-linejoin="round"/>
+</svg>

@@ -46,6 +46,7 @@ async function fixture(t,{provider=async()=>reportResult(),chatProvider=async()=
     const asked=await action(investor,{type:'request-access',workspaceId,message:'Xin xem dữ liệu để thẩm định dự án.'});assert.equal(asked.status,200);
     const requestId=asked.body.requests.at(-1).id;
     const approved=await action(founder,{type:'decide-access',requestId,decision:'approved'});assert.equal(approved.status,200);
+    for(const party of ['startup','investor'])store.settleConnectionPayment({requestId,party,providerPaymentId:`http-${requestId}-${party}`,amountVnd:250_000,currency:'VND'});
     return requestId;
   }
   return {store,base,request,session,action,project,approve,advance:ms=>{time+=ms;}};
@@ -97,6 +98,9 @@ test('ownership checks stop investor approval and unauthorized chat/investment a
   assert.equal((await app.action(investor,{type:'send-message',workspaceId,text:'Unauthorized'})).status,403);
   assert.equal((await app.action(investor,{type:'record-investment',workspaceId,invested:10,ownership:1,date:'2026-11-01'})).status,403);
   result=await app.action(founder,{type:'decide-access',requestId,decision:'approved'});assert.equal(result.status,200);
+  assert.equal((await app.action(investor,{type:'settle-connection-payment',requestId,party:'investor',providerPaymentId:'forged'})).status,400);
+  assert.equal((await app.action(investor,{type:'send-message',workspaceId,text:'Still locked'})).status,403);
+  for(const party of ['startup','investor'])app.store.settleConnectionPayment({requestId,party,providerPaymentId:`ownership-${party}`,amountVnd:250_000,currency:'VND'});
   assert.equal((await app.action(investor,{type:'send-message',workspaceId,text:'Xin trao đổi kế hoạch vốn.'})).status,200);
   assert.equal((await app.action(investor,{type:'record-investment',workspaceId,invested:10,ownership:1,date:'2026-11-01'})).status,200);
 });

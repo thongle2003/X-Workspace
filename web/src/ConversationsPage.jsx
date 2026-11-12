@@ -34,7 +34,7 @@ function ConversationDialog({ onClose, onCreate }) {
 }
 
 export function ConversationsPage({ state, id = '', onOpenAgent }) {
-  const displayName = state.role === 'founder' ? 'Startup demo' : 'Nhà đầu tư demo';
+  const displayName = state.role === 'founder' ? 'Startup' : 'Nhà đầu tư';
   const initials = state.role === 'founder' ? 'ST' : 'NĐ';
   const workspaces = state.workspaces.filter(workspace => workspace.role === state.role);
   const [requestedWorkspace, requestedConversation] = id.split('/');

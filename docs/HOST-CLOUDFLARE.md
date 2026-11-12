@@ -5,10 +5,10 @@ Kiến trúc dự phòng chạy độc lập với Render:
 | Phần | Cloudflare |
 |---|---|
 | Giao diện React đã build | Workers Static Assets |
-| API, phân quyền và gọi ModelAPI | Cloudflare Worker |
+| API, phân quyền và gọi DeepSeek | Cloudflare Worker |
 | Workspace, hồ sơ, tin nhắn, danh mục và sổ token | Durable Object dùng SQLite |
 
-Chỉ dùng **Workers Free** và **SQLite-backed Durable Objects** trên Free. Không cần Containers, R2, tên miền trả phí hoặc nâng Workers Paid. AI vẫn gọi ModelAPI bằng khóa của bạn; **Cloudflare Free không cấp miễn phí token ModelAPI**.
+Chỉ dùng **Workers Free** và **SQLite-backed Durable Objects** trên Free. Không cần Containers, R2, tên miền trả phí hoặc nâng Workers Paid. AI vẫn gọi DeepSeek bằng khóa của bạn; **Cloudflare Free không cấp miễn phí token DeepSeek**.
 
 ## Giới hạn miễn phí
 
@@ -46,11 +46,11 @@ npx wrangler login
 Tạo tệp riêng `web/.env.cloudflare` trên máy, nằm trong quy tắc bỏ qua `.env.*` của Git:
 
 ```dotenv
-AI_API_KEY=nhap_khoa_ModelAPI_thuc_te_o_day
+AI_API_KEY=nhap_khoa_DeepSeek_thuc_te_o_day
 BACKUP_ADMIN_KEY=mot_chuoi_bi_mat_dai_rieng_cho_sao_luu
 ```
 
-Không commit tệp này và không nhập khóa vào frontend. `BACKUP_ADMIN_KEY` phải khác khóa ModelAPI. Các giá trị không bí mật như `AI_BASE_URL`, `AI_MODEL`, `PUBLIC_DEMO` nằm trong cấu hình Worker; giá trị mặc định dùng `https://api.modelapi.vn/v1` và `gpt-6-astra`.
+Không commit tệp này và không nhập khóa vào frontend. `BACKUP_ADMIN_KEY` phải khác khóa DeepSeek. Các giá trị không bí mật như `AI_BASE_URL`, `AI_MODEL`, `PUBLIC_DEMO` nằm trong cấu hình Worker; giá trị mặc định dùng `https://api.deepseek.com` và `deepseek-flash`. Tạo khóa tại [DeepSeek Platform](https://platform.deepseek.com/api_keys).
 
 ```powershell
 npx wrangler deploy --secrets-file .env.cloudflare
@@ -64,10 +64,10 @@ Có thể thêm/cập nhật từng secret riêng bằng `npx wrangler secret pu
 
 Đây là bản sao tại một thời điểm, không phải cơ chế đồng bộ hai chiều hoặc tự động chuyển khi Render lỗi. Sau khi sao chép, thay đổi ở Render và Cloudflare đi vào hai bộ dữ liệu riêng. Nên chọn một link chính để cập nhật và tạo bản sao mới có chủ đích khi cần.
 
-1. Cấu hình `BACKUP_ADMIN_KEY` trong Render Environment và deploy bản API có chức năng backup. Không dùng API key ModelAPI làm khóa quản trị backup.
+1. Cấu hình `BACKUP_ADMIN_KEY` trong Render Environment và deploy bản API có chức năng backup. Không dùng API key DeepSeek làm khóa quản trị backup.
 2. Tạm ngừng nhập dữ liệu mới trên Render trong lúc xuất để xác định rõ thời điểm chụp.
 3. Gọi `GET https://x-workspace-demo.onrender.com/api/admin/backup`, gửi header `Authorization: Bearer <BACKUP_ADMIN_KEY>`.
-4. Lưu nguyên JSON trả về vào một tệp riêng ngoài Git. Envelope có dạng `{format:"2g2bt-backup-v1",exportedAt,data}`. Trường `data` chứa dữ liệu, quyền và sổ sử dụng token; không chứa khóa ModelAPI.
+4. Lưu nguyên JSON trả về vào một tệp riêng ngoài Git. Envelope có dạng `{format:"2g2bt-backup-v1",exportedAt,data}`. Trường `data` chứa dữ liệu, quyền và sổ sử dụng token; không chứa khóa DeepSeek.
 5. Kiểm tra revision hiện tại của bản Cloudflare qua snapshot `/api/workflow` trong phiên demo. Dùng revision này làm `expectedRevision` để ngăn ghi đè nhầm lên dữ liệu vừa thay đổi.
 6. Gọi `POST https://<worker-cua-ban>.workers.dev/api/admin/restore`, gửi cùng loại header quản trị của **Cloudflare**, body JSON `{backup:<nguyen-envelope-da-luu>,expectedRevision:<revision-hien-tai>}`. Secret quản trị hai nơi có thể khác nhau.
 7. Chỉ xác nhận sao chép thành công khi API trả `{ok:true,revision:...}` và các bản ghi quan trọng cùng sổ token được đối chiếu lại. Khi revision đã đổi, xuất/kiểm tra lại trước khi quyết định restore; không tự ép ghi đè.
@@ -82,7 +82,7 @@ Dữ liệu Cloudflare nằm trong SQLite của Durable Object, không nằm tro
 - Trình duyệt mới mở website không cần mật khẩu; đổi gói trên bản công khai vẫn bị chặn phía API.
 - Nhà đầu tư chưa được duyệt không đọc được CSV, báo cáo hoặc tin nhắn; thu hồi quyền chặn cả yêu cầu AI đang chạy.
 - Reload, tạo phiên mới và cập nhật code không cấp lại token Free đã dùng; snapshot SQLite giữ số liệu sau khi object được tạo lại.
-- Lỗi ModelAPI không tạo báo cáo giả. Usage chưa rõ giữ khoản dự trù chờ đối soát; không tự retry có thể tính phí hai lần.
+- Lỗi DeepSeek không tạo báo cáo giả. Usage chưa rõ giữ khoản dự trù chờ đối soát; không tự retry có thể tính phí hai lần.
 - Backup không có secret; restore từ người không có `BACKUP_ADMIN_KEY`, dữ liệu hỏng hoặc revision cũ đều bị từ chối.
 
-Các kiểm tra tự động dùng provider fixture để không tính phí. Một lần smoke test AI thật riêng mới xác nhận được kết nối và quyền dùng model của tài khoản ModelAPI đang cấu hình.
+Các kiểm tra tự động dùng provider fixture để không tính phí. Một lần kiểm tra AI thật riêng mới xác nhận được kết nối và quyền dùng model của tài khoản DeepSeek đang cấu hình.

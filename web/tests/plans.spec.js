@@ -4,6 +4,7 @@ import {freshState,validateState,changeRole,changePlan,refreshUsage,STORAGE_KEY}
 async function seed(page,state){ const id=state.role==='founder'?'startup-demo':'investor-demo'; await page.addInitScript(({legacy,key,active,id,state})=>{if(!sessionStorage.getItem('seeded')){localStorage.setItem(legacy,JSON.stringify(state));localStorage.setItem(key,JSON.stringify(state));localStorage.setItem(active,id);sessionStorage.setItem('seeded','1');}},{legacy:STORAGE_KEY,key:getAccountStorageKey(id),active:ACTIVE_ACCOUNT_STORAGE_KEY,id,state}); }
 const read = page => page.evaluate(({active,keys})=>JSON.parse(localStorage.getItem(keys[localStorage.getItem(active)||'investor-demo'])),{active:ACTIVE_ACCOUNT_STORAGE_KEY,keys:Object.fromEntries(['investor-demo','startup-demo'].map(id=>[id,getAccountStorageKey(id)]))});
 async function selectPlan(page,name,free=false){
+  if(name.startsWith('Startup ')) await page.goto('/#/pricing/legacy'); // Old quota controls remain available only for technical demo tests.
   const card=page.locator('section').filter({has:page.getByRole('heading',{name,exact:true})}).first();
   await card.getByRole('button').first().click();
   await page.getByRole('dialog').getByRole('checkbox').check();
@@ -20,19 +21,19 @@ test('Startup Free can create one workspace; new workspace is blocked and existi
 });
 test('token estimate is charged, insufficient budget and Free export are blocked; upgrading does not refill Free',async({page})=>{
   const s=validateState(freshState());changeRole(s,'founder');await seed(page,s);await page.goto('/#/analysis');
-  await page.getByRole('button',{name:'Dùng dữ liệu mẫu LotusPay'}).click();await expect(page.getByTestId('token-estimate')).toContainText('841');
+  await page.getByRole('button',{name:'Dùng CSV LotusPay'}).click();await expect(page.getByTestId('token-estimate')).toContainText('841');
   await page.getByRole('button',{name:'Phân tích · 841 token'}).click();await expect(page.getByTestId('token-remaining')).toContainText('1.159');
   await page.getByRole('button',{name:/Xuất báo cáo CSV/}).click();await expect(page.getByRole('dialog')).toContainText('xuất báo cáo');await page.getByRole('dialog').getByRole('button',{name:'Đóng',exact:true}).last().click();
   await page.getByRole('button',{name:'Phân tích · 841 token'}).click();await expect(page.getByTestId('token-remaining')).toContainText('318');
   await page.getByRole('button',{name:'Phân tích · 841 token'}).click();await expect(page.getByRole('dialog')).toContainText('còn 318');
   expect((await read(page)).reports.filter(r=>r.role==='founder')).toHaveLength(2);
   await page.getByRole('link',{name:'Xem gói phù hợp'}).click();await selectPlan(page,'Startup Launch');
-  await page.goto('/#/analysis');await page.getByRole('button',{name:'Dùng dữ liệu mẫu LotusPay'}).click();await page.getByRole('button',{name:'Phân tích · 841 token'}).click();await expect(page.getByTestId('token-remaining')).toContainText('19.159');
+  await page.goto('/#/analysis');await page.getByRole('button',{name:'Dùng CSV LotusPay'}).click();await page.getByRole('button',{name:'Phân tích · 841 token'}).click();await expect(page.getByTestId('token-remaining')).toContainText('19.159');
   const download=page.waitForEvent('download');await page.getByRole('button',{name:'Xuất báo cáo CSV',exact:true}).click();expect((await download).suggestedFilename()).toMatch(/\.csv$/);
   await page.goto('/#/pricing');await selectPlan(page,'Startup Free',true);await page.goto('/#/analysis');await expect(page.getByTestId('token-remaining')).toContainText('318');
   await page.reload();await expect(page.getByTestId('token-remaining')).toContainText('318');
-  await page.getByLabel('Tài khoản dùng thử').selectOption('investor-demo');await expect(page.getByTestId('token-remaining')).toContainText('4.000');
-  await page.getByLabel('Tài khoản dùng thử').selectOption('startup-demo');await expect(page.getByTestId('token-remaining')).toContainText('318');
+  await page.getByLabel('Chọn vai trò').selectOption('investor-demo');await expect(page.getByTestId('token-remaining')).toContainText('4.000');
+  await page.getByLabel('Chọn vai trò').selectOption('startup-demo');await expect(page.getByTestId('token-remaining')).toContainText('318');
 });
 test('paid resets Monday in Vietnam while Free remains spent, including after returning to Free',async({page})=>{
   await page.clock.install({time:new Date('2026-11-01T16:59:50Z')});
@@ -48,12 +49,27 @@ test('investor watchlist and compare quotas are enforced at both entry points',a
   await page.goto('/#/marketplace');for(let i=0;i<3;i++)await page.getByRole('button',{name:'So sánh',exact:true}).first().click();await expect(page.getByRole('dialog')).toContainText('startup so sánh');expect((await read(page)).compare).toHaveLength(2);
 });
 test('pricing follows the active role and mobile pages fit the viewport',async({page})=>{
-  await page.goto('/#/pricing');await expect(page.getByRole('heading',{name:'Startup Launch',exact:true})).toHaveCount(0);await page.getByLabel('Tài khoản dùng thử').selectOption('startup-demo');await expect(page.getByRole('heading',{name:'Startup Launch',exact:true})).toBeVisible();expect((await read(page)).role).toBe('founder');await expect(page.getByRole('heading',{name:'Investor Analyst',exact:true})).toHaveCount(0);
+  await page.goto('/#/pricing');await expect(page.getByRole('heading',{name:'Startup Launch',exact:true})).toHaveCount(0);await page.getByLabel('Chọn vai trò').selectOption('startup-demo');await expect(page.getByRole('heading',{name:'Startup trả theo hồ sơ',exact:true})).toBeVisible();expect((await read(page)).role).toBe('founder');await expect(page.getByRole('heading',{name:'Investor Basic',exact:true})).toHaveCount(0);
   await page.screenshot({path:'../tmp/pricing-startup-final.png',fullPage:true});
-  await page.getByLabel('Tài khoản dùng thử').selectOption('investor-demo');await expect(page.getByRole('heading',{name:'Investor Analyst',exact:true})).toBeVisible();await page.screenshot({path:'../tmp/pricing-investor-final.png',fullPage:true});
+  await page.getByLabel('Chọn vai trò').selectOption('investor-demo');
+  const planCard = name => page.locator('section').filter({has:page.getByRole('heading',{name,exact:true})}).first();
+  await expect(planCard('Investor Trial')).toContainText('Trial 2 tháng');
+  await expect(planCard('Investor Trial')).toContainText('3 startup đã lưu');
+  await expect(planCard('Investor Trial')).toContainText('3 startup trong danh mục');
+  await expect(planCard('Investor Basic')).toContainText('399.000');
+  await expect(planCard('Investor Basic')).toContainText('5 startup đã lưu');
+  await expect(planCard('Investor Basic')).toContainText('10 startup trong danh mục');
+  await expect(planCard('Investor Pro')).toContainText('699.000');
+  await expect(planCard('Investor Pro')).toContainText('20 startup đã lưu');
+  await expect(planCard('Investor Pro')).toContainText('50 startup trong danh mục');
+  await page.getByRole('button',{name:'Theo năm'}).click();
+  await expect(planCard('Investor Basic')).toContainText('3.999.000');
+  await expect(planCard('Investor Pro')).toContainText('6.999.000');
+  await expect(planCard('Investor Pro')).toContainText('Bản đồ sự kiện/startup gần bạn');
+  await page.screenshot({path:'../tmp/pricing-investor-final.png',fullPage:true});
   await page.setViewportSize({width:390,height:844});for(const route of ['pricing','analysis','workspace','marketplace','dashboard']){await page.goto('/#/'+route);await expect(page.locator('h1')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
   await page.goto('/#/pricing');await page.screenshot({path:'../tmp/pricing-mobile-final.png',fullPage:true});
-  await page.getByRole('button',{name:'Mở menu'}).click();await expect(page.getByRole('link',{name:'Gói dịch vụ',exact:false}).first()).toBeVisible();await page.keyboard.press('Escape');
+  await page.getByRole('button',{name:'Mở menu'}).click();await expect(page.getByRole('button',{name:'Gói dịch vụ',exact:false}).first()).toBeVisible();await page.keyboard.press('Escape');
 });
 
 test('investor cannot create a workspace from any entry point or purchase a Startup plan',async({page})=>{

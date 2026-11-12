@@ -16,7 +16,7 @@ async function json(req,maxBytes=2_200_000) {
   let size=0;const chunks=[];for await(const chunk of req){size+=chunk.length;if(size>maxBytes)throw fail(413,'FILE_SIZE','Dữ liệu vượt giới hạn của yêu cầu.');chunks.push(chunk);}
   try { const data=JSON.parse(Buffer.concat(chunks).toString('utf8'));if(!data||typeof data!=='object'||Array.isArray(data))throw new Error();return data; } catch { throw fail(400,'JSON','JSON phải là một đối tượng hợp lệ.'); }
 }
-export function createAPI({store=createWorkflowStore({filePath:process.env.WORKFLOW_DATA_FILE||path.resolve(webRoot,'../.runtime/workflow.json')}), config=()=>getAIConfig(), provider=generateFinancialReport, chatProvider=generateChatReply, now=()=>Date.now(), publicOrigin=process.env.APP_ORIGIN||process.env.RENDER_EXTERNAL_URL||'', publicDemo=process.env.PUBLIC_DEMO==='true', backupAdminKey=process.env.BACKUP_ADMIN_KEY||''}={}) {
+export function createAPI({store=createWorkflowStore({filePath:process.env.WORKFLOW_DATA_FILE||path.resolve(webRoot,'../.runtime/workflow.json'),seedMarketplace:process.env.PUBLIC_DEMO==='true'}), config=()=>getAIConfig(), provider=generateFinancialReport, chatProvider=generateChatReply, now=()=>Date.now(), publicOrigin=process.env.APP_ORIGIN||process.env.RENDER_EXTERNAL_URL||'', publicDemo=process.env.PUBLIC_DEMO==='true', backupAdminKey=process.env.BACKUP_ADMIN_KEY||''}={}) {
   const sessions=new Map();const inFlight=new Set();
   let hostedOrigin=null;
   if(publicOrigin){
@@ -24,7 +24,7 @@ export function createAPI({store=createWorkflowStore({filePath:process.env.WORKF
     if(configured.protocol!=='https:'||configured.username||configured.password||configured.pathname!=='/'||configured.search||configured.hash)throw new Error('APP_ORIGIN phải là origin HTTPS hợp lệ.');
     hostedOrigin=configured.origin;
   }
-  function actor(req) { const token=req.headers['x-demo-session'];const session=typeof token==='string'?sessions.get(token):undefined;if(!session||session.expires<now())throw fail(401,'SESSION','Phiên thử nghiệm đã hết hạn. Vui lòng chọn lại vai trò.');return session.userId; }
+  function actor(req) { const token=req.headers['x-demo-session'];const session=typeof token==='string'?sessions.get(token):undefined;if(!session||session.expires<now())throw fail(401,'SESSION','Phiên làm việc đã hết hạn. Vui lòng chọn lại vai trò.');return session.userId; }
   return async function handle(req,res,next) {
     const url=new URL(req.url,'http://localhost');
     if(!url.pathname.startsWith('/api/')) { if(next)return next();return send(res,404,{message:'Không tìm thấy.'}); }
@@ -61,11 +61,14 @@ export function createAPI({store=createWorkflowStore({filePath:process.env.WORKF
       if(req.method==='GET'&&url.pathname==='/api/workflow')return send(res,200,store.snapshot(userId));
       if(req.method==='POST'&&url.pathname==='/api/workflow/actions'){
         const action=await json(req);
-        if(publicDemo&&action.type==='change-plan')throw fail(403,'PUBLIC_DEMO_PLAN','Bản chia sẻ công khai giữ gói hiện tại để giới hạn chi phí AI. Bạn vẫn có thể xem bảng giá và trải nghiệm các tính năng trong hạn mức.');
+        if(action.type==='bypass-connection-fee-demo'&&!publicDemo)throw fail(403,'DEMO_ONLY','Bỏ qua phí chỉ bật trong môi trường demo công khai.');
+        if(publicDemo&&action.type==='change-plan')throw fail(403,'PUBLIC_DEMO_PLAN','Gói hiện tại được giữ cố định để giới hạn chi phí AI. Bạn vẫn có thể xem bảng giá và trải nghiệm các tính năng trong hạn mức.');
         return send(res,200,store.act(userId,action));
       }
       const financial=url.pathname.match(/^\/api\/workflow\/workspaces\/([^/]+)\/financial$/);
       if(req.method==='GET'&&financial)return send(res,200,store.getFinancial(userId,decodeURIComponent(financial[1])));
+      const attachment=url.pathname.match(/^\/api\/workflow\/workspaces\/([^/]+)\/attachments\/([^/]+)$/);
+      if(req.method==='GET'&&attachment)return send(res,200,store.getAttachment(userId,decodeURIComponent(attachment[1]),decodeURIComponent(attachment[2])));
       if(req.method==='POST'&&url.pathname==='/api/ai/analysis'){
         const body=await json(req);const settings=config();if(!settings.configured)throw fail(503,'AI_NOT_CONFIGURED','Máy chủ chưa có khóa API AI hợp lệ.');
         if(inFlight.has(userId))throw fail(409,'AI_BUSY','Một phân tích đang chạy. Hãy đợi kết quả trước khi gửi tiếp.');
@@ -91,18 +94,36 @@ export function createAPI({store=createWorkflowStore({filePath:process.env.WORKF
       }
       if(req.method==='POST'&&url.pathname==='/api/ai/chat') {
         const body=await json(req),settings=config();
+        if(typeof body.question!=='string'||!body.question.trim()||body.question.length>4000)throw fail(400,'INVALID','Câu hỏi trống hoặc vượt giới hạn 4.000 ký tự.');
+        const question=body.question.trim(),sessionId=body.sessionId===undefined?'legacy':body.sessionId;
+        if(typeof sessionId!=='string'||!/^[A-Za-z0-9_-]{1,100}$/.test(sessionId))throw fail(400,'INVALID','Phiên chat không hợp lệ.');
         if(!settings.configured)throw fail(503,'AI_NOT_CONFIGURED','Máy chủ chưa có khóa API AI hợp lệ.');
         if(inFlight.has(userId))throw fail(409,'AI_BUSY','Một yêu cầu AI đang chạy. Vui lòng đợi.');
         const snapshot=store.snapshot(userId);
         const workspace=body.workspaceId?snapshot.workspaces.find(w=>w.id===body.workspaceId):null;
         if(body.workspaceId&&!workspace)throw fail(403,'FORBIDDEN','Bạn chưa có quyền xem dự án này.');
-        const context={role:snapshot.user.role,plan:snapshot.plan.name,remainingTokens:snapshot.usage.remaining,projects:snapshot.marketplace.map(p=>({name:p.profile.name,industry:p.profile.industry,summary:p.profile.summary.slice(0,160)})).slice(0,6)};
-        if(workspace){context.workspace={name:workspace.name,goal:workspace.goal,profile:workspace.profile};if(workspace.financial){const a=analyze(parseCSV(workspace.financial.csv));context.financialMetrics={latest:a.latest,margin:a.margin,burn:a.burn,runway:a.runway};}}
-        const payload=buildChatPrompt({question:body.question,context});const inputTokensEstimate=estimateInputTokens(payload);
+        const fold=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLocaleLowerCase('vi');
+        const textProfile=profile=>({ ...profile, media:profile.media?.productDemoUrl?{productDemoUrl:profile.media.productDemoUrl}:undefined, teamRoster:profile.teamRoster?{...profile.teamRoster,leader:profile.teamRoster.leader&&(({photo,photoConsent,...person})=>person)(profile.teamRoster.leader),coLeader:profile.teamRoster.coLeader&&(({photo,photoConsent,...person})=>person)(profile.teamRoster.coLeader),members:(profile.teamRoster.members||[]).map(({photo,photoConsent,...person})=>person)}:undefined });
+        const projectList=snapshot.marketplace.map(p=>({id:p.id,name:p.profile.name,industry:p.profile.industry,summary:p.profile.summary.slice(0,160)})).slice(0,6);
+        const context={role:snapshot.user.role,plan:snapshot.plan.name,remainingTokens:snapshot.usage.remaining,projects:projectList};
+        if(workspace){context.workspace={name:workspace.name,goal:workspace.goal,profile:textProfile(workspace.profile),diligence:workspace.diligence};if(workspace.financial){const rows=parseCSV(workspace.financial.csv),a=analyze(rows);context.financialMetrics={latest:a.latest,margin:a.margin,burn:a.burn,runway:a.runway};context.financialRows=rows;context.financialDataNote='Kịch bản lập kế hoạch, chưa được kiểm toán hoặc đối soát; không trình bày như kết quả hoạt động đã xác minh.';}}
+        else {
+          const question=fold(body.question);
+          const matched=snapshot.marketplace.find(p=>question.includes(fold(p.profile.name))||question.includes(fold(p.id)));
+          if(matched){
+            context.projectForAnalysis={id:matched.id,name:matched.profile.name,goal:matched.profile.summary,profile:textProfile(matched.profile)};
+            const accessible=snapshot.workspaces.find(w=>w.id===matched.id);
+            if(accessible){
+              context.projectForAnalysis.diligence=accessible.diligence;
+              if(accessible.financial){const rows=parseCSV(accessible.financial.csv),a=analyze(rows);context.projectForAnalysis.financialMetrics={latest:a.latest,margin:a.margin,burn:a.burn,runway:a.runway};context.projectForAnalysis.financialRows=rows;context.projectForAnalysis.financialDataNote='Kịch bản lập kế hoạch, chưa được kiểm toán hoặc đối soát; không trình bày như kết quả hoạt động đã xác minh.';}
+            }
+          }
+        }
+        const payload=buildChatPrompt({question,context});const inputTokensEstimate=estimateInputTokens(payload);
         const maxOutputTokens=Math.min(512,settings.maxOutputTokens,snapshot.usage.remaining-inputTokensEstimate);
         if(maxOutputTokens<128)throw fail(429,'LIMIT','Không đủ token cho câu hỏi này.');
         const reservation=store.beginChat(userId,{workspaceId:body.workspaceId,inputTokensEstimate,maxOutputTokens});inFlight.add(userId);let result;
-        try{result=await chatProvider({question:body.question,context,config:settings,maxOutputTokens});const reply=store.finishChat(userId,reservation.id,result);return send(res,200,{reply,snapshot:store.snapshot(userId)});}
+        try{result=await chatProvider({question,context,config:settings,maxOutputTokens});const reply=store.finishChat(userId,reservation.id,result,{question,sessionId});return send(res,200,{reply,snapshot:store.snapshot(userId)});}
         catch(error){settleFailure(userId,reservation.id,error,result);throw error;}finally{inFlight.delete(userId);}
       }
       throw fail(404,'NOT_FOUND','Không tìm thấy API.');

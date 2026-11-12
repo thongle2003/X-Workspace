@@ -2,7 +2,7 @@ import { test, expect } from './demo-fixture.js';
 import { STORAGE_KEY, freshState, validateState } from '../domain.js';
 import { ACTIVE_ACCOUNT_STORAGE_KEY, getAccountStorageKey } from '../src/demoAccounts.js';
 
-const accountPicker = page => page.getByRole('combobox', { name: 'Tài khoản dùng thử', exact: true });
+const accountPicker = page => page.getByRole('combobox', { name: 'Chọn vai trò', exact: true });
 const readAccount = (page, accountId) => page.evaluate(key => JSON.parse(localStorage.getItem(key)), getAccountStorageKey(accountId));
 async function useStartupAccount(page) {
   await page.goto('/#/home');

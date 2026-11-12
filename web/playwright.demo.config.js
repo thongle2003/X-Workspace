@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
-  testMatch: ['**/demo-accounts.spec.js', '**/home-agent.spec.js', '**/plans.spec.js', '**/workspace-chat.spec.js'],
+  testMatch: ['**/case-workflow.spec.js', '**/demo-accounts.spec.js', '**/home-agent.spec.js', '**/plans.spec.js', '**/workspace-chat.spec.js'],
   outputDir: '../tmp/demo-e2e-verification',
   fullyParallel: false,
   workers: 1,

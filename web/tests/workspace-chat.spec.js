@@ -14,12 +14,12 @@ const readExisting = page => page.evaluate(key => {
 }, getAccountStorageKey('investor-demo'));
 
 test('two account tabs keep both message histories when they save stale snapshots', async ({ page }) => {
-  await page.goto('/#/conversations');
+  await page.goto('/#/conversations/personal');
   const startupTab = await page.context().newPage();
   try {
     await startupTab.goto('/?mode=demo#/conversations');
-    await startupTab.getByLabel('Tài khoản dùng thử').selectOption('startup-demo');
-    await expect(startupTab.getByLabel('Tài khoản dùng thử')).toHaveValue('startup-demo');
+    await startupTab.getByLabel('Chọn vai trò').selectOption('startup-demo');
+    await expect(startupTab.getByLabel('Chọn vai trò')).toHaveValue('startup-demo');
     await composer(page).fill('Tin nhà đầu tư thứ nhất.');
     await composer(page).press('Enter');
     await expect(messageLog(page)).toContainText('Tin nhà đầu tư thứ nhất.');
@@ -54,27 +54,23 @@ async function createConversation(page, name, kind = 'channel') {
   await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
 }
 
-test('home introduces the workspace and conversation navigation keeps the same messages', async ({ page }) => {
+test('investor AI Chat is the landing page while workspace conversation history remains available', async ({ page }) => {
   await page.goto('/');
-  const title = page.getByRole('heading', { name: 'Không gian làm việc cho startup và nhà đầu tư.', exact: true });
-  await expect(title).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Mình có thể giúp gì cho bạn?' })).toBeVisible();
   await expect(composer(page)).toHaveCount(0);
-  await expect(page.locator('main').getByRole('link', { name: 'Vào workspace', exact: true })).toHaveAttribute('href', '#/workspace');
-  const openChat = page.locator('main').getByRole('link', { name: 'Mở trò chuyện', exact: true });
-  await expect(openChat).toHaveAttribute('href', '#/conversations');
-  await openChat.click();
-  await expect(page).toHaveURL(/#\/conversations$/);
+  await expect(page.getByRole('complementary', { name: 'Điều hướng Nhà đầu tư' }).getByRole('link', { name: 'AI Chat', exact: true })).toHaveAttribute('aria-current', 'page');
+  await page.goto('/#/conversations/personal');
   await createConversation(page, 'Trao đổi được giữ lại');
+  const conversationUrl = page.url();
   await composer(page).fill('Nội dung vẫn còn sau khi trở về trang chủ.');
   await composer(page).press('Enter');
   await expect(messageLog(page)).toContainText('Nội dung vẫn còn sau khi trở về trang chủ.');
 
-  await page.getByRole('link', { name: 'X · Trang chủ', exact: true }).click();
-  await expect(page).toHaveURL(/#\/home$/);
-  await expect(title).toBeVisible();
+  await page.getByRole('complementary', { name: 'Điều hướng Nhà đầu tư' }).getByRole('link', { name: 'Dashboard đầu tư' }).click();
+  await expect(page).toHaveURL(/#\/dashboard$/);
+  await expect(page.getByRole('heading', { name: 'Danh mục của bạn, trong một góc nhìn.' })).toBeVisible();
   await expect(composer(page)).toHaveCount(0);
-  await openChat.click();
-  await page.getByRole('link', { name: 'Trao đổi được giữ lại', exact: true }).click();
+  await page.goto(conversationUrl);
   await expect(messageLog(page)).toContainText('Nội dung vẫn còn sau khi trở về trang chủ.');
   await page.reload();
   await expect(messageLog(page)).toContainText('Nội dung vẫn còn sau khi trở về trang chủ.');
@@ -141,7 +137,7 @@ test('workspace conversations retain messages and leave all existing project dat
 });
 
 test('new channels and direct conversations stay isolated by workspace and role', async ({ page }) => {
-  await page.goto('/#/conversations');
+  await page.goto('/#/conversations/personal');
   await createConversation(page, 'Trao đổi riêng', 'direct');
   await composer(page).fill('Nội dung trong không gian cá nhân.');
   await composer(page).press('Enter');
@@ -152,9 +148,9 @@ test('new channels and direct conversations stay isolated by workspace and role'
   await scopePicker(page).selectOption('personal');
   await expect(page.getByRole('link', { name: 'Trao đổi riêng', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Công việc Lotus', exact: true })).toHaveCount(0);
-  await page.getByLabel('Tài khoản dùng thử').selectOption('startup-demo');
+  await page.getByLabel('Chọn vai trò').selectOption('startup-demo');
   await expect(page.getByRole('link', { name: 'Trao đổi riêng', exact: true })).toHaveCount(0);
-  await page.getByLabel('Tài khoản dùng thử').selectOption('investor-demo');
+  await page.getByLabel('Chọn vai trò').selectOption('investor-demo');
   await page.getByRole('link', { name: 'Trao đổi riêng', exact: true }).click();
   await expect(messageLog(page)).toContainText('Nội dung trong không gian cá nhân.');
   await page.reload();
@@ -162,7 +158,7 @@ test('new channels and direct conversations stay isolated by workspace and role'
 });
 
 test('composer supports multiline messages, replies and search without accepting blank messages', async ({ page }) => {
-  await page.goto('/#/conversations');
+  await page.goto('/#/conversations/personal');
   const input = composer(page);
   const send = page.locator('main').getByRole('button', { name: 'Gửi tin nhắn', exact: true });
   await expect(send).toBeDisabled();
@@ -194,7 +190,7 @@ test('composer supports multiline messages, replies and search without accepting
 for (const width of [390, 320]) {
   test(`conversation creation and composer fit a ${width}px mobile viewport`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 });
-    await page.goto('/#/conversations');
+    await page.goto('/#/conversations/personal');
     await expect(composer(page)).toBeInViewport();
     await page.getByRole('button', { name: 'Danh sách cuộc trò chuyện', exact: true }).click();
     await createConversation(page, `Kênh di động ${width}`);

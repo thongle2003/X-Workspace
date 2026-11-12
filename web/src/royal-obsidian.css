@@ -1,0 +1,392 @@
+/* Royal Obsidian adapters for the existing utility classes and composed views.
+   All surfaces and state colors resolve to the five foundation colors in index.css. */
+:root[data-theme] {
+  --state-subtle: color-mix(in srgb, var(--surface) 78%, var(--color-lavender));
+  --state-border: color-mix(in srgb, var(--color-lavender) 42%, var(--surface));
+  --premium-border: color-mix(in srgb, var(--color-gold) 58%, var(--surface));
+  --shadow-color: color-mix(in srgb, var(--color-obsidian) 15%, transparent);
+  --chat-user-bg: var(--color-lavender);
+  --chat-user-text: var(--color-obsidian);
+}
+:root[data-theme="dark"] {
+  --state-subtle: color-mix(in srgb, var(--color-obsidian) 68%, var(--color-royal));
+  --state-border: color-mix(in srgb, var(--color-obsidian) 52%, var(--color-lavender));
+  --premium-border: color-mix(in srgb, var(--color-obsidian) 44%, var(--color-gold));
+  --shadow-color: color-mix(in srgb, var(--color-obsidian) 55%, transparent);
+  --chat-user-bg: var(--color-royal);
+  --chat-user-text: var(--color-pearl);
+}
+
+:root[data-theme] body,
+:root[data-theme] #app { background: var(--app-background); color: var(--text-primary); }
+:root[data-theme] ::selection { background: var(--color-lavender); color: var(--color-obsidian); }
+:root[data-theme] :where(button,a,input,select,textarea):focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
+:root[data-theme] :where(input,select,textarea) { color: var(--text-primary); color-scheme: light; }
+:root[data-theme="dark"] :where(input,select,textarea) { color-scheme: dark; }
+:root[data-theme] :where(input,textarea)::placeholder { color: var(--text-muted); opacity: 1; }
+:root[data-theme] select option { background: var(--surface); color: var(--text-primary); }
+:root[data-theme] dialog { background: var(--surface); color: var(--text-primary); }
+:root[data-theme] dialog::backdrop { background: color-mix(in srgb, var(--color-obsidian) 72%, transparent); }
+:root[data-theme] :where(*):not(html) { scrollbar-color: var(--border) var(--app-background); }
+:root[data-theme] .skip-link { background: var(--color-royal); color: var(--color-pearl); }
+
+/* Marketplace covers stay decorative; text and controls use opaque surfaces. */
+:root[data-theme] .startup-cover { background: var(--surface-accent); }
+:root[data-theme] .startup-cover-shade { background: linear-gradient(180deg, transparent 43%, color-mix(in srgb, var(--color-obsidian) 58%, transparent)); }
+:root[data-theme] .startup-cover-pill,
+:root[data-theme] .startup-cover-action { background: var(--color-pearl); color: var(--color-obsidian); box-shadow: 0 2px 10px var(--shadow-color); }
+:root[data-theme] .startup-cover-action:hover:not(:disabled) { background: var(--color-lavender); }
+:root[data-theme] .startup-cover-action:disabled { opacity: .6; cursor: not-allowed; }
+
+/* Surfaces, cards, forms, tables and loading placeholders. */
+:root[data-theme] .bg-white,
+:root[data-theme] [class~="bg-white/90"],
+:root[data-theme] [class~="bg-white/80"] { background-color: var(--surface); }
+:root[data-theme] .bg-slate-50,
+:root[data-theme] .bg-slate-100,
+:root[data-theme] [class~="bg-slate-50/50"],
+:root[data-theme] [class~="bg-slate-50/80"],
+:root[data-theme] [class~="bg-slate-100/80"] { background-color: var(--surface-soft); }
+:root[data-theme] .bg-slate-200,
+:root[data-theme] .bg-slate-300,
+:root[data-theme] .bg-slate-400 { background-color: var(--border); }
+:root[data-theme] .bg-slate-700,
+:root[data-theme] .bg-slate-800,
+:root[data-theme] .bg-slate-900,
+:root[data-theme] [class~="bg-[#171717]"],
+:root[data-theme] [class~="bg-[#17233a]"],
+:root[data-theme] [class~="bg-[#17233b]"] { background-color: var(--color-obsidian); }
+:root[data-theme] [class~="bg-[#f6f7fb]"],
+:root[data-theme] [class~="bg-[#0d1626]"] { background-color: var(--app-background); }
+:root[data-theme] .bg-indigo-50,
+:root[data-theme] .bg-indigo-100,
+:root[data-theme] .bg-violet-100,
+:root[data-theme] .bg-violet-200,
+:root[data-theme] [class~="bg-violet-400/10"],
+:root[data-theme] [class~="bg-violet-400/20"],
+:root[data-theme] .bg-teal-50,
+:root[data-theme] .bg-emerald-50,
+:root[data-theme] [class~="bg-indigo-50/30"],
+:root[data-theme] [class~="bg-indigo-50/50"],
+:root[data-theme] [class~="bg-indigo-50/60"],
+:root[data-theme] [class~="bg-indigo-50/70"] { background-color: var(--surface-accent); }
+:root[data-theme] .bg-indigo-500,
+:root[data-theme] .bg-indigo-600,
+:root[data-theme] .bg-indigo-700,
+:root[data-theme] .bg-teal-500,
+:root[data-theme] .bg-emerald-500 { background-color: var(--color-royal); }
+:root[data-theme] .bg-amber-400 { background-color: var(--color-gold); color: var(--color-obsidian); }
+:root[data-theme] .bg-amber-50,
+:root[data-theme] .bg-rose-50,
+:root[data-theme] .bg-rose-100,
+:root[data-theme] [class~="bg-amber-50/60"],
+:root[data-theme] [class~="bg-amber-50/70"],
+:root[data-theme] [class~="bg-rose-50/60"] { background-color: var(--surface-premium); }
+:root[data-theme] [class~="bg-white/10"],
+:root[data-theme] [class~="bg-white/5"] { background-color: color-mix(in srgb, var(--color-pearl) 10%, transparent); }
+:root[data-theme] [class~="bg-slate-950/25"],
+:root[data-theme] [class~="bg-slate-950/50"],
+:root[data-theme] [class~="bg-slate-950/55"],
+:root[data-theme] [class~="bg-slate-950/70"],
+:root[data-theme] [class~="bg-black/70"] { background-color: color-mix(in srgb, var(--color-obsidian) 70%, transparent); }
+
+:root[data-theme] .text-slate-900,
+:root[data-theme] .text-slate-800 { color: var(--text-primary); }
+:root[data-theme] .text-slate-700,
+:root[data-theme] .text-slate-600,
+:root[data-theme] .text-slate-500 { color: var(--text-secondary); }
+:root[data-theme] .text-slate-400,
+:root[data-theme] .text-slate-300 { color: var(--text-muted); }
+:root[data-theme] .text-slate-200,
+:root[data-theme] .text-slate-100,
+:root[data-theme] .text-white { color: var(--color-pearl); }
+:root[data-theme] .text-indigo-100,
+:root[data-theme] .text-indigo-200,
+:root[data-theme] .text-indigo-400,
+:root[data-theme] .text-indigo-500,
+:root[data-theme] .text-indigo-600,
+:root[data-theme] .text-indigo-700,
+:root[data-theme] .text-indigo-800,
+:root[data-theme] .text-indigo-900,
+:root[data-theme] .text-indigo-950,
+:root[data-theme] .text-violet-600,
+:root[data-theme] .text-teal-600,
+:root[data-theme] .text-teal-800,
+:root[data-theme] .text-emerald-700 { color: var(--accent-text); }
+:root[data-theme] .text-amber-500,
+:root[data-theme] .text-amber-600,
+:root[data-theme] .text-amber-700,
+:root[data-theme] .text-amber-800,
+:root[data-theme] .text-amber-900,
+:root[data-theme] .text-rose-500,
+:root[data-theme] .text-rose-600,
+:root[data-theme] .text-rose-700,
+:root[data-theme] .text-rose-800,
+:root[data-theme] .text-red-600 { color: var(--text-primary); }
+:root[data-theme="dark"] .text-amber-500,
+:root[data-theme="dark"] .text-amber-600,
+:root[data-theme="dark"] .text-amber-700,
+:root[data-theme="dark"] .text-amber-800,
+:root[data-theme="dark"] .text-amber-900,
+:root[data-theme="dark"] .text-rose-500,
+:root[data-theme="dark"] .text-rose-600,
+:root[data-theme="dark"] .text-rose-700,
+:root[data-theme="dark"] .text-rose-800,
+:root[data-theme="dark"] .text-red-600 { color: var(--color-gold); }
+:root[data-theme] .bg-amber-400 :is(.text-white,.text-slate-100),
+:root[data-theme] .bg-amber-400.text-white { color: var(--color-obsidian); }
+
+:root[data-theme] .border-slate-100,
+:root[data-theme] .border-slate-200,
+:root[data-theme] [class~="border-slate-200/80"],
+:root[data-theme] .divide-slate-100 > :not(:last-child) { border-color: var(--border); }
+:root[data-theme] .border-indigo-100,
+:root[data-theme] .border-indigo-200,
+:root[data-theme] .border-indigo-300,
+:root[data-theme] .border-indigo-400,
+:root[data-theme] .border-indigo-500,
+:root[data-theme] .border-rose-100,
+:root[data-theme] [class~="border-violet-300/10"],
+:root[data-theme] [class~="border-violet-300/20"],
+:root[data-theme] [class~="border-violet-300/30"] { border-color: var(--state-border); }
+:root[data-theme] .border-amber-100,
+:root[data-theme] .border-amber-200 { border-color: var(--premium-border); }
+:root[data-theme] .ring-indigo-50,
+:root[data-theme] .ring-indigo-100,
+:root[data-theme] .ring-indigo-200,
+:root[data-theme] .ring-indigo-400,
+:root[data-theme] .ring-indigo-50,
+:root[data-theme] .ring-emerald-200 { --tw-ring-color: var(--focus-ring); }
+:root[data-theme] .accent-indigo-500,
+:root[data-theme] .accent-indigo-600 { accent-color: var(--color-royal); }
+:root[data-theme] .from-indigo-50 { --tw-gradient-from: var(--surface-accent); }
+:root[data-theme] .via-white { --tw-gradient-via: var(--surface); }
+:root[data-theme] .to-teal-50 { --tw-gradient-to: var(--surface-soft); }
+:root[data-theme] [class~="shadow-indigo-600/20"],
+:root[data-theme] [class~="shadow-indigo-100/60"],
+:root[data-theme] [class~="shadow-slate-200/20"],
+:root[data-theme] [class~="shadow-slate-200/30"] { --tw-shadow-color: var(--shadow-color); }
+
+/* Hover, focus, selected, disabled and loading states. */
+:root[data-theme] [class~="hover:bg-indigo-700"]:hover,
+:root[data-theme] [class~="hover:bg-indigo-600"]:hover,
+:root[data-theme] [class~="hover:bg-indigo-500"]:hover { background-color: color-mix(in srgb, var(--color-royal) 82%, var(--color-obsidian)); }
+:root[data-theme] [class~="hover:bg-indigo-50"]:hover,
+:root[data-theme] [class~="hover:bg-indigo-100"]:hover,
+:root[data-theme] [class~="hover:bg-indigo-50/30"]:hover,
+:root[data-theme] [class~="hover:bg-violet-400/20"]:hover,
+:root[data-theme] [class~="hover:bg-rose-50"]:hover,
+:root[data-theme] [class~="hover:bg-rose-100"]:hover,
+:root[data-theme] [class~="hover:bg-amber-50"]:hover,
+:root[data-theme] [class~="hover:bg-slate-50"]:hover,
+:root[data-theme] [class~="hover:bg-slate-100"]:hover,
+:root[data-theme] [class~="hover:bg-[#1c1921]"]:hover { background-color: var(--state-subtle); }
+:root[data-theme] [class~="hover:bg-white/10"]:hover,
+:root[data-theme] [class~="hover:bg-white/5"]:hover { background-color: color-mix(in srgb, var(--color-pearl) 12%, transparent); }
+:root[data-theme] [class~="hover:text-indigo-600"]:hover,
+:root[data-theme] [class~="hover:text-indigo-700"]:hover,
+:root[data-theme] [class~="hover:text-indigo-800"]:hover,
+:root[data-theme] [class~="hover:text-slate-800"]:hover,
+:root[data-theme] [class~="hover:text-rose-600"]:hover,
+:root[data-theme] [class~="hover:text-amber-500"]:hover,
+:root[data-theme] [class~="hover:text-slate-700"]:hover { color: var(--accent-text); }
+:root[data-theme] [class~="hover:text-white"]:hover { color: var(--color-pearl); }
+:root[data-theme] [class~="hover:border-indigo-300"]:hover,
+:root[data-theme] [class~="hover:border-indigo-200"]:hover { border-color: var(--color-royal); }
+:root[data-theme] [class~="hover:border-violet-300/30"]:hover { border-color: var(--state-border); }
+:root[data-theme] [class~="focus:border-indigo-400"]:focus,
+:root[data-theme] [class~="focus:border-indigo-500"]:focus,
+:root[data-theme] [class~="focus-within:border-indigo-400"]:focus-within { border-color: var(--focus-ring); }
+:root[data-theme] [class~="focus:ring-indigo-100"]:focus,
+:root[data-theme] [class~="focus:ring-indigo-200"]:focus,
+:root[data-theme] [class~="focus:ring-indigo-50"]:focus,
+:root[data-theme] [class~="focus-visible:ring-indigo-200"]:focus-visible,
+:root[data-theme] [class~="focus-within:ring-indigo-100"]:focus-within { --tw-ring-color: color-mix(in srgb, var(--focus-ring) 35%, transparent); }
+:root[data-theme] :where(button,input,textarea,select):disabled { cursor: not-allowed; opacity: .65; }
+:root[data-theme] [class~="disabled:bg-slate-100"]:disabled { background-color: var(--surface-soft); }
+:root[data-theme] [class~="disabled:text-slate-400"]:disabled { color: var(--text-muted); }
+:root[data-theme] [aria-selected="true"]:not(.investor-ai-message),
+:root[data-theme] [aria-pressed="true"]:not(.theme-toggle) { border-color: var(--color-royal); }
+
+/* Both role navigation systems use the same semantic surface. */
+:root[data-theme] .investor-sidebar,
+:root[data-theme] .startup-sidebar { background: var(--sidebar-background); border-color: var(--border); color: var(--text-secondary); scrollbar-color: var(--border) var(--sidebar-background); }
+:root[data-theme] .investor-sidebar .brand-logo,
+:root[data-theme] .startup-sidebar .brand-logo { filter: brightness(0) saturate(100%); }
+:root[data-theme="dark"] .investor-sidebar .brand-logo,
+:root[data-theme="dark"] .startup-sidebar .brand-logo { filter: none; }
+:root[data-theme] .brand-link:hover { background: var(--state-subtle); }
+:root[data-theme] .brand-badge,
+:root[data-theme] .investor-account-avatar,
+:root[data-theme] .startup-account-avatar { border-color: var(--state-border); background: var(--color-lavender); color: var(--color-obsidian); }
+:root[data-theme] .investor-nav-heading,
+:root[data-theme] .startup-nav-heading,
+:root[data-theme] .investor-brand-full p { color: var(--text-muted); }
+:root[data-theme] .investor-nav-link,
+:root[data-theme] .startup-nav-link { color: var(--text-secondary); }
+:root[data-theme] .investor-nav-link > svg:first-child,
+:root[data-theme] .startup-nav-link > svg:first-child { color: var(--text-muted); }
+:root[data-theme] .investor-nav-link:hover,
+:root[data-theme] .startup-nav-link:hover { background: var(--state-subtle); color: var(--accent-text); }
+:root[data-theme] .investor-nav-link:hover > svg:first-child,
+:root[data-theme] .startup-nav-link:hover > svg:first-child { color: var(--accent-text); }
+:root[data-theme] .investor-nav-link.is-active,
+:root[data-theme] .startup-nav-link.is-active { background: var(--color-royal); color: var(--color-pearl); box-shadow: 0 7px 22px var(--shadow-color); }
+:root[data-theme] .investor-nav-link.is-active > svg:first-child,
+:root[data-theme] .startup-nav-link.is-active > svg:first-child { color: var(--color-pearl); }
+:root[data-theme] .investor-nav-link.is-group-active { color: var(--accent-text); }
+:root[data-theme] .investor-nav-link.is-group-active .investor-nav-label { color: var(--accent-text); }
+:root[data-theme] .investor-collapse-button,
+:root[data-theme] .investor-mobile-close,
+:root[data-theme] .startup-collapse-button,
+:root[data-theme] .startup-mobile-close { border-color: var(--border); color: var(--text-secondary); }
+:root[data-theme] .investor-collapse-button:hover,
+:root[data-theme] .investor-mobile-close:hover,
+:root[data-theme] .startup-collapse-button:hover,
+:root[data-theme] .startup-mobile-close:hover { background: var(--state-subtle); color: var(--accent-text); }
+:root[data-theme] .investor-nav-divider,
+:root[data-theme] .startup-nav-divider { background: var(--border); }
+:root[data-theme] .investor-account { border-color: var(--border); }
+:root[data-theme] .investor-account-copy strong,
+:root[data-theme] .startup-account-copy strong { color: var(--text-primary); }
+:root[data-theme] .investor-account-copy small,
+:root[data-theme] .startup-account-copy small { color: var(--text-secondary); }
+:root[data-theme] .investor-plan-tier { background: var(--color-gold); color: var(--color-obsidian); }
+:root[data-theme] .startup-workspace-count { background: var(--color-lavender); color: var(--color-obsidian); }
+:root[data-theme] .startup-nav-link.is-active .startup-workspace-count { background: var(--color-pearl); color: var(--color-obsidian); }
+:root[data-theme] .theme-toggle { border-color: var(--border); background: var(--surface); color: var(--text-primary); }
+:root[data-theme] .theme-toggle:hover { border-color: var(--color-royal); background: var(--state-subtle); color: var(--accent-text); }
+
+/* Startup home uses the same theme roles as the rest of the workspace. */
+:root[data-theme] .home-hero,
+:root[data-theme] .home-tool { background: var(--surface); border-color: var(--border); }
+:root[data-theme] .home-eyebrow { color: var(--accent-text); }
+:root[data-theme] .home-title,
+:root[data-theme] .home-tool-title { color: var(--text-primary); }
+:root[data-theme] .home-description,
+:root[data-theme] .home-tool-description { color: var(--text-secondary); }
+:root[data-theme] .home-secondary-action { border-color: var(--border); color: var(--text-primary); }
+:root[data-theme] .home-secondary-action:hover,
+:root[data-theme] .home-tool:hover { background: var(--state-subtle); border-color: var(--state-border); }
+:root[data-theme] .home-agent-action,
+:root[data-theme] .home-tool-icon { background: var(--surface-accent); border-color: var(--state-border); color: var(--accent-text); }
+:root[data-theme] .home-agent-action:hover { background: var(--state-subtle); border-color: var(--color-royal); }
+
+/* Financial charts and other composed visual surfaces. */
+:root[data-theme] .team-person-card { background: linear-gradient(105deg,var(--color-lavender),var(--surface)); }
+:root[data-theme] .team-person-card::after { background: linear-gradient(90deg,transparent 0%,var(--surface) 56%,var(--surface) 100%); }
+:root[data-theme] .funding-pie { box-shadow: 0 0 0 3px var(--surface); }
+:root[data-theme] :is(.bg-amber-50,.bg-rose-50) :is(.text-amber-700,.text-amber-800,.text-rose-700,.text-rose-800) { color: var(--text-primary); }
+:root[data-theme="dark"] :is(.bg-amber-50,.bg-rose-50) :is(.text-amber-700,.text-amber-800,.text-rose-700,.text-rose-800) { color: var(--color-gold); }
+
+/* Workspace conversation, messages and dialog. */
+:root[data-theme] body .chat-workspace { background: var(--app-background); color: var(--text-primary); }
+:root[data-theme] body .chat-sidebar,
+:root[data-theme] body .chat-header,
+:root[data-theme] body .chat-profile { background: var(--surface); border-color: var(--border); }
+:root[data-theme] body .chat-scope,
+:root[data-theme] body .chat-toolbar { border-color: var(--border); }
+:root[data-theme] body .chat-eyebrow,
+:root[data-theme] body .chat-profile p,
+:root[data-theme] body .chat-channel-group h2 span,
+:root[data-theme] body .chat-channel-group a small,
+:root[data-theme] body .chat-channel-group h2,
+:root[data-theme] body .chat-scope p,
+:root[data-theme] body .chat-title p,
+:root[data-theme] body .chat-day,
+:root[data-theme] body .chat-message-meta time,
+:root[data-theme] body .chat-composer-bottom > span,
+:root[data-theme] body .chat-local-note { color: var(--text-muted); }
+:root[data-theme] body .chat-scope-picker select,
+:root[data-theme] body .chat-title h1,
+:root[data-theme] body .chat-message-meta strong,
+:root[data-theme] body .chat-welcome-title { color: var(--text-primary); }
+:root[data-theme] body .chat-shortcuts a,
+:root[data-theme] body .chat-channel-group a,
+:root[data-theme] body .chat-tabs > *,
+:root[data-theme] body .chat-message-text,
+:root[data-theme] body .chat-welcome > p:not(.chat-welcome-title) { color: var(--text-secondary); }
+:root[data-theme] body .chat-shortcuts a:hover,
+:root[data-theme] body .chat-channel-group a:hover,
+:root[data-theme] body .chat-message:hover { background: var(--state-subtle); color: var(--accent-text); }
+:root[data-theme] body .chat-channel-group a.is-active { background: var(--surface-accent); color: var(--text-primary); }
+:root[data-theme] body .chat-channel-group a.is-active svg,
+:root[data-theme] body .chat-tab-active,
+:root[data-theme] body .chat-tabs > .chat-tab-active,
+:root[data-theme] body .chat-tabs > a:hover,
+:root[data-theme] body .chat-reply-count { color: var(--accent-text); }
+:root[data-theme] body .chat-tab-active::after,
+:root[data-theme] body .chat-scope p span,
+:root[data-theme] body .chat-online { background: var(--color-royal); }
+:root[data-theme] body .chat-day::before,
+:root[data-theme] body .chat-day::after { background: var(--border); }
+:root[data-theme] body .chat-create button,
+:root[data-theme] body .chat-agent-button,
+:root[data-theme] body .chat-welcome-icon,
+:root[data-theme] body .chat-dialog-symbol,
+:root[data-theme] body .chat-avatar { background: var(--color-lavender); color: var(--color-obsidian); border-color: var(--state-border); }
+:root[data-theme] body .chat-create button:hover,
+:root[data-theme] body .chat-agent-button:hover { background: var(--state-subtle); color: var(--accent-text); }
+:root[data-theme] body .chat-search,
+:root[data-theme] body .chat-composer,
+:root[data-theme] body .chat-dialog,
+:root[data-theme] body .chat-dialog :is(input,select,textarea) { background: var(--surface); border-color: var(--border); color: var(--text-primary); }
+:root[data-theme] body .chat-search input,
+:root[data-theme] body .chat-composer textarea { color: var(--text-primary); }
+:root[data-theme] body .chat-search:focus-within,
+:root[data-theme] body .chat-composer:focus-within { border-color: var(--focus-ring); }
+:root[data-theme] body .chat-quoted,
+:root[data-theme] body .chat-replying { background: var(--surface-accent); border-color: var(--color-royal); color: var(--text-secondary); }
+:root[data-theme] body .chat-replying strong { color: var(--accent-text); }
+:root[data-theme] body .chat-composer-bottom > button,
+:root[data-theme] body .chat-dialog .chat-primary { background: var(--color-royal); border-color: var(--color-royal); color: var(--color-pearl); }
+:root[data-theme] body .chat-composer-bottom > button:hover:not(:disabled) { background: color-mix(in srgb,var(--color-royal) 80%,var(--color-obsidian)); }
+:root[data-theme] body .chat-composer-bottom > button:disabled { background: var(--surface-soft); color: var(--text-muted); }
+:root[data-theme] body .chat-dialog h2 + p,
+:root[data-theme] body .chat-dialog label { color: var(--text-secondary); }
+:root[data-theme] body .chat-dialog .chat-secondary { color: var(--text-primary); border-color: var(--border); }
+:root[data-theme] body .chat-save-warning,
+:root[data-theme] body .chat-error { background: var(--surface-premium); color: var(--text-primary); }
+
+/* Full-page investor AI chat, including both message roles and loading states. */
+:root[data-theme] body .investor-ai-chat { background: var(--app-background); color: var(--text-primary); }
+:root[data-theme] body .investor-ai-atmosphere { background: radial-gradient(ellipse 43% 35% at 50% 45%,color-mix(in srgb,var(--color-royal) 13%,transparent),transparent 74%),var(--app-background); }
+:root[data-theme] body .investor-ai-atmosphere::before,
+:root[data-theme] body .investor-ai-atmosphere::after { border-color: var(--border); }
+:root[data-theme] body .investor-ai-atmosphere span { background: linear-gradient(transparent,var(--color-lavender),transparent); }
+:root[data-theme] body .investor-ai-atmosphere span:nth-child(2) { background: var(--color-lavender); }
+:root[data-theme] body .investor-ai-atmosphere span:nth-child(3) { background: linear-gradient(90deg,transparent,var(--color-lavender),transparent); }
+:root[data-theme] body .investor-ai-header { border-color: var(--border); }
+:root[data-theme] body .investor-ai-header-title,
+:root[data-theme] body .investor-ai-eyebrow,
+:root[data-theme] body .investor-ai-intro,
+:root[data-theme] body .investor-ai-caption,
+:root[data-theme] body .investor-ai-composer-foot,
+:root[data-theme] body .investor-ai-message-content small { color: var(--text-secondary); }
+:root[data-theme] body .investor-ai-header-title strong,
+:root[data-theme] body .investor-ai-welcome h1 { color: var(--text-primary); }
+:root[data-theme] body .investor-ai-header-title > svg,
+:root[data-theme] body .investor-ai-symbol,
+:root[data-theme] body .investor-ai-pending { color: var(--accent-text); }
+:root[data-theme] body .investor-ai-header-separator { background: var(--border); }
+:root[data-theme] body .investor-ai-account,
+:root[data-theme] body .investor-ai-new,
+:root[data-theme] body .investor-ai-mobile-menu,
+:root[data-theme] body .investor-ai-prompts button { background: var(--surface); border-color: var(--border); color: var(--text-primary); }
+:root[data-theme] body .investor-ai-new:hover,
+:root[data-theme] body .investor-ai-prompts button:hover:not(:disabled) { background: var(--state-subtle); border-color: var(--state-border); color: var(--accent-text); }
+:root[data-theme] body .investor-ai-symbol::before { background: var(--color-lavender); }
+:root[data-theme] body .investor-ai-symbol::after { background: linear-gradient(transparent,var(--color-lavender),transparent); }
+:root[data-theme] body .investor-ai-symbol span { text-shadow: 0 0 20px color-mix(in srgb,var(--color-lavender) 48%,transparent); }
+:root[data-theme] body .investor-ai-status { background: var(--color-gold); border-color: var(--premium-border); color: var(--color-obsidian); }
+:root[data-theme] body .investor-ai-composer { background: var(--surface-raised); border-color: var(--border); box-shadow: 0 14px 45px var(--shadow-color); }
+:root[data-theme] body .investor-ai-composer:focus-within { border-color: var(--focus-ring); box-shadow: 0 0 0 3px color-mix(in srgb,var(--focus-ring) 25%,transparent); }
+:root[data-theme] body .investor-ai-composer textarea { color: var(--text-primary); }
+:root[data-theme] body .investor-ai-composer textarea::placeholder { color: var(--text-muted); }
+:root[data-theme] body .investor-ai-composer-foot button { background: var(--color-royal); color: var(--color-pearl); }
+:root[data-theme] body .investor-ai-composer-foot button:hover:not(:disabled) { background: color-mix(in srgb,var(--color-royal) 82%,var(--color-obsidian)); }
+:root[data-theme] body .investor-ai-composer-foot button:disabled { background: var(--surface-soft); color: var(--text-muted); }
+:root[data-theme] body .investor-ai-message { color: var(--text-primary); }
+:root[data-theme] body .investor-ai-message.is-user { background: var(--chat-user-bg); border-color: var(--state-border); color: var(--chat-user-text); }
+:root[data-theme] body .investor-ai-message-mark { border-color: var(--state-border); color: var(--accent-text); }
+:root[data-theme] body .investor-ai-message-content a { color: var(--accent-text); }

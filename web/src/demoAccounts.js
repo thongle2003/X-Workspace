@@ -1,8 +1,8 @@
 import { STORAGE_KEY, freshState, validateState, changeRole, changePlan } from '../domain.js';
 
 export const DEMO_ACCOUNTS = Object.freeze([
-  Object.freeze({ id: 'investor-demo', role: 'investor', name: 'Nhà đầu tư demo' }),
-  Object.freeze({ id: 'startup-demo', role: 'founder', name: 'Startup demo' }),
+  Object.freeze({ id: 'investor-demo', role: 'investor', name: 'Nhà đầu tư' }),
+  Object.freeze({ id: 'startup-demo', role: 'founder', name: 'Startup' }),
 ]);
 export const ACTIVE_ACCOUNT_STORAGE_KEY = 'x-workspace-active-demo-account-v1';
 const pendingStates = new Map();
@@ -33,6 +33,12 @@ function parseState(raw) {
 
 function forAccount(state, account) {
   const copy = validateState(structuredClone(state));
+  for (const startup of copy.startups) {
+    startup.description = startup.description
+      .replace(/\s*Startup và các số liệu dưới đây là dữ liệu hư cấu dùng để thử nghiệm\./u, '')
+      .replace(/\s*Dữ liệu minh họa, chưa kiểm toán\./u, '')
+      .trim();
+  }
   if (copy.role !== account.role) changeRole(copy, account.role);
   return copy;
 }

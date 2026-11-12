@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 65" role="img" aria-labelledby="title">
+  <title id="title">2GOOD2BETRUE</title>
+  <svg x="0" y="0" width="26" height="65" viewBox="155 45 80 290">
+    <path d="M169 153 L169 78 C169 43 224 43 224 78 L224 117 C224 149 206 169 188 197 C175 216 169 229 169 251 L169 325 L229 325" fill="none" stroke="#F3F4F6" stroke-width="11" stroke-linecap="square" stroke-linejoin="round"/>
+  </svg>
+  <svg x="30" y="3" width="190" height="59" viewBox="240 155 360 70">
+    <g fill="#F3F4F6" font-family="DejaVu Sans,Arial,sans-serif" font-weight="bold">
+      <text x="247" y="190" font-size="29" letter-spacing="-1.5">2G</text>
+      <text x="328" y="190" font-size="29" letter-spacing="-1.5">OD2BETRUE</text>
+      <text x="248" y="214" font-size="17" letter-spacing="-.4">IT'S TRUE</text>
+    </g>
+    <circle cx="310" cy="179" r="12" stroke="#F3F4F6" stroke-width="2.5" fill="none"/>
+    <circle cx="310" cy="179" r="8.5" stroke="#F3F4F6" stroke-width="1" fill="none"/>
+    <path d="M310 169 L310 189 M300 179 L320 179 M303 172 L317 186 M317 172 L303 186" stroke="#F3F4F6" stroke-width="1.2"/>
+  </svg>
+</svg>

@@ -5,7 +5,7 @@ import { useWorkflow } from './InvestmentFlow.jsx';
 
 const suggestionsFor = role => ['Phân tích tài chính', role === 'founder' ? 'Chuẩn bị hồ sơ gọi vốn' : 'Câu hỏi thẩm định', 'Rủi ro dòng tiền', 'Gói dịch vụ & token'];
 
-export function AIAgent({ state, open, onOpen, onClose, raised = false, workspaceMode = false }) {
+export function AIAgent({ state, open, onOpen, onClose, raised = false, workspaceMode = false, showLauncher = true }) {
   const { snapshot, status, aiStatus, api, refresh } = useWorkflow();
   const dialogRef = useRef(null), inputRef = useRef(null), launcherRef = useRef(null), logRef = useRef(null);
   const sequence = useRef(0), sending = useRef(false), actor = useRef(null);
@@ -55,10 +55,10 @@ export function AIAgent({ state, open, onOpen, onClose, raised = false, workspac
   }
 
   return <>
-    <button ref={launcherRef} type="button" aria-label="Mở AI Agent" aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? 'ai-agent-panel' : undefined} onClick={onOpen}
+    {showLauncher && <button ref={launcherRef} type="button" aria-label="Mở AI Agent" aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? 'ai-agent-panel' : undefined} onClick={onOpen}
       className={`fixed right-4 z-30 flex items-center rounded-2xl border border-white/20 bg-indigo-600 text-sm font-semibold text-white shadow-xl shadow-indigo-950/25 transition hover:-translate-y-1 hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-500 sm:right-6 ${workspaceMode ? 'h-12 w-12 justify-center p-0 bottom-[200px]' : `min-h-14 gap-2.5 px-4 py-3 ${raised ? 'bottom-28' : 'bottom-[calc(1.25rem+env(safe-area-inset-bottom))]'}`}`}>
       <Bot size={25} strokeWidth={1.8} aria-hidden="true" /><span className={workspaceMode ? 'sr-only' : undefined}>AI Agent</span>{!workspaceMode && <Sparkles size={14} className="text-indigo-200" aria-hidden="true" />}
-    </button>
+    </button>}
     {open && <dialog ref={dialogRef} id="ai-agent-panel" aria-labelledby="ai-agent-title" aria-describedby="ai-agent-description"
       onCancel={event => { event.preventDefault(); onClose(); }}
       onClick={event => { if (event.target === event.currentTarget) { const bounds = event.currentTarget.getBoundingClientRect(); if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) onClose(); } }}

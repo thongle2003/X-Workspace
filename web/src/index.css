@@ -1,6 +1,58 @@
 @import "tailwindcss";
 
-:root { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #f5f5f5; background: #090909; color-scheme: dark; font-synthesis: none; text-rendering: optimizeLegibility; }
+:root {
+  /* Royal Obsidian: one five-color foundation, with semantic roles per theme. */
+  --color-obsidian: #111827;
+  --color-royal: #7C3AED;
+  --color-lavender: #C4B5FD;
+  --color-pearl: #F3F4F6;
+  --color-gold: #EAB308;
+  --app-background: var(--color-pearl);
+  --sidebar-background: var(--color-pearl);
+  --brand-logo-background: transparent;
+  --brand-logo-filter: none;
+  --surface: var(--color-pearl);
+  --surface-soft: color-mix(in srgb, var(--color-pearl) 90%, var(--color-lavender));
+  --surface-raised: color-mix(in srgb, var(--color-pearl) 96%, var(--color-obsidian));
+  --surface-accent: color-mix(in srgb, var(--color-pearl) 75%, var(--color-lavender));
+  --surface-premium: color-mix(in srgb, var(--color-pearl) 68%, var(--color-gold));
+  --text-primary: var(--color-obsidian);
+  --text-secondary: color-mix(in srgb, var(--color-obsidian) 82%, var(--color-pearl));
+  --text-muted: color-mix(in srgb, var(--color-obsidian) 72%, var(--color-pearl));
+  --border: color-mix(in srgb, var(--color-obsidian) 16%, var(--color-pearl));
+  --accent: var(--color-royal);
+  --accent-text: var(--color-royal);
+  --on-accent: var(--color-pearl);
+  --premium: var(--color-gold);
+  --on-premium: var(--color-obsidian);
+  --focus-ring: var(--color-royal);
+  --funding-raised: var(--color-royal);
+  --funding-remaining: var(--color-lavender);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--text-primary);
+  background: var(--app-background);
+  color-scheme: light;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+:root[data-theme="dark"] {
+  --app-background: var(--color-obsidian);
+  --sidebar-background: var(--color-obsidian);
+  --surface: var(--color-obsidian);
+  --surface-soft: color-mix(in srgb, var(--color-obsidian) 90%, var(--color-lavender));
+  --surface-raised: color-mix(in srgb, var(--color-obsidian) 93%, var(--color-lavender));
+  --surface-accent: color-mix(in srgb, var(--color-obsidian) 72%, var(--color-royal));
+  --surface-premium: color-mix(in srgb, var(--color-obsidian) 82%, var(--color-gold));
+  --text-primary: var(--color-pearl);
+  --text-secondary: var(--color-lavender);
+  --text-muted: color-mix(in srgb, var(--color-pearl) 78%, var(--color-obsidian));
+  --border: color-mix(in srgb, var(--color-lavender) 23%, var(--color-obsidian));
+  --accent-text: var(--color-lavender);
+  --focus-ring: var(--color-lavender);
+  --funding-raised: var(--color-gold);
+  --funding-remaining: var(--color-royal);
+  color-scheme: dark;
+}
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body { margin: 0; min-width: 320px; overflow-x: hidden; }
@@ -12,25 +64,40 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .skip-link { position: absolute; left: -9999px; top: 1rem; z-index: 100; border-radius: 0.75rem; background: #17233a; padding: 0.7rem 1rem; color: white; font-size: 0.8rem; font-weight: 600; }
 .skip-link:focus { left: 1rem; }
 
+[class~="bg-[#090909]"] { background: var(--app-background); }
+[class~="bg-[#0b0b0b]"] { background: var(--sidebar-background); }
+.brand-link { display: flex; align-items: center; width: 100%; min-height: 90px; padding: 4px; border-radius: 14px; background: var(--brand-logo-background); transition: background-color .2s ease; }
+.brand-link:hover { background-color: rgb(255 255 255 / 4%); }
+.brand-logo { display: block; width: 100%; max-height: 90px; object-fit: contain; filter: var(--brand-logo-filter); }
+.brand-badge { display: grid; place-items: center; flex: 0 0 36px; width: 36px; height: 36px; border: 1px solid rgb(249 249 220 / 15%); border-radius: 10px; background: var(--sidebar-background); color: #f9f9dc; font-size: 12px; font-weight: 800; letter-spacing: -1px; }
+
+/* Portraits sit on the left; their tinted surface continues behind the copy. */
+.team-person-card { position: relative; isolation: isolate; min-height: 148px; overflow: hidden; background: linear-gradient(105deg, #d8d4fb 0%, #e8e7fc 47%, #f5f5ff 100%); }
+.team-person-card::after { content: ''; position: absolute; z-index: 0; inset: 0; pointer-events: none; background: linear-gradient(90deg, transparent 0%, rgb(245 245 255 / 12%) 22%, rgb(245 245 255 / 82%) 36%, rgb(245 245 255 / 94%) 100%); }
+.team-person-card > img { position: absolute; z-index: 0; bottom: 0; left: 0; width: 36%; height: 100%; object-fit: cover; object-position: center 18%; }
+.team-person-copy { position: relative; z-index: 1; min-width: 0; margin-left: 39%; padding: 14px 13px 14px 3px; overflow-wrap: anywhere; }
+:root[data-theme="dark"] .team-person-card { background: linear-gradient(105deg, #29243f 0%, #252438 50%, #1e1e2d 100%); }
+:root[data-theme="dark"] .team-person-card::after { background: linear-gradient(90deg, transparent 0%, rgb(30 30 45 / 12%) 22%, rgb(30 30 45 / 82%) 36%, rgb(30 30 45 / 94%) 100%); }
+
 /* One neutral dark palette for the shared React surfaces and dialogs. */
-.bg-white { background-color: #121212; }
-[class~="bg-white/90"] { background-color: rgb(18 18 18 / 94%); }
-[class~="bg-white/80"] { background-color: rgb(26 26 26 / 94%); }
+.bg-white { background-color: #15161C; }
+[class~="bg-white/90"] { background-color: rgb(21 22 28 / 94%); }
+[class~="bg-white/80"] { background-color: rgb(21 22 28 / 82%); }
 .bg-slate-50, .bg-slate-100,
 [class~="bg-slate-50/50"], [class~="bg-slate-50/70"], [class~="bg-slate-50/80"],
-[class~="bg-slate-100/80"] { background-color: #1a1a1a; }
-.bg-slate-200 { background-color: #303030; }
+[class~="bg-slate-100/80"] { background-color: #20212A; }
+.bg-slate-200 { background-color: #313341; }
 .bg-slate-700 { background-color: #303030; }
 .bg-slate-800 { background-color: #242424; }
 .bg-slate-900 { background-color: #171717; }
-[class~="bg-[#f6f7fb]"] { background-color: #090909; }
-[class~="bg-[#0d1626]"] { background-color: #090909; }
+[class~="bg-[#f6f7fb]"] { background-color: #0A0B10; }
+[class~="bg-[#0d1626]"] { background-color: #0A0B10; }
 [class~="bg-[#17233a]"], [class~="bg-[#17233b]"] { background-color: #141414; }
 
 .text-slate-900, .text-slate-800 { color: #f5f5f5; }
 .text-slate-700 { color: #d4d4d4; }
 .text-slate-600 { color: #bdbdbd; }
-.text-slate-500 { color: #a3a3a3; }
+.text-slate-500 { color: #A5A9BA; }
 .text-slate-400 { color: #929292; }
 .text-slate-300 { color: #d4d4d4; }
 .text-slate-200 { color: #e5e5e5; }
@@ -98,3 +165,184 @@ dialog::backdrop { background: rgb(0 0 0 / 70%); }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
 }
+
+/* Investor navigation follows the compact, dark sidebar reference. */
+.investor-sidebar { background: #0b0b10; border-right: 1px solid #22212d; color: #c8c8d2; scrollbar-color: #3b3b49 #0b0b10; }
+.investor-sidebar-header { position: relative; display: flex; min-height: 107px; align-items: flex-start; padding: 0 6px 11px; }
+.investor-brand-full { min-width: 0; width: 100%; padding-right: 28px; }
+.investor-brand-full .brand-link { min-height: 65px; padding: 0; }
+.investor-brand-full .brand-logo { max-height: 65px; }
+.investor-brand-full p { margin: -1px 0 0 2px; color: #89899a; font-size: 10px; letter-spacing: .1em; }
+.investor-brand-compact { display: none; }
+.investor-collapse-button { position: absolute; top: 16px; right: 1px; display: grid; width: 28px; height: 28px; place-items: center; border: 1px solid #393846; border-radius: 9px; color: #a7a6ba; transition: background-color .18s, color .18s; }
+.investor-collapse-button:hover { background: #242334; color: #fff; }
+.investor-mobile-close { position: absolute; top: 16px; right: 1px; display: grid; width: 28px; height: 28px; place-items: center; border: 1px solid #393846; border-radius: 9px; color: #a7a6ba; }
+.investor-mobile-close:hover { background: #242334; color: #fff; }
+@media (max-width: 1023px) { .investor-collapse-button { display: none; } }
+.investor-nav-heading { margin: 3px 12px 12px; color: #89899a; font-size: 10px; font-weight: 700; letter-spacing: .19em; }
+.investor-primary-nav, .investor-secondary-nav { display: flex; flex-direction: column; gap: 3px; }
+.investor-nav-link { position: relative; display: flex; width: 100%; min-height: 42px; align-items: center; gap: 12px; border: 0; border-radius: 11px; padding: 0 12px; background: transparent; color: #aaaab8; text-align: left; font-size: 12px; font-weight: 550; text-decoration: none; transition: background-color .18s, color .18s, box-shadow .18s; }
+.investor-nav-link > svg:first-child { flex: 0 0 auto; color: #9999aa; }
+.investor-nav-link:hover { background: #1c1b29; color: #fff; }
+.investor-nav-link:hover > svg:first-child { color: #d6cbff; }
+.investor-nav-link.is-active { background: linear-gradient(105deg, #633ef2 0%, #5b5cf7 60%, #4b67e9 100%); color: #fff; box-shadow: 0 7px 22px rgb(83 68 230 / 18%); font-weight: 650; }
+.investor-nav-link.is-active > svg:first-child { color: #fff; }
+.investor-nav-link.is-group-active { color: #e7e2ff; }
+.investor-nav-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.investor-group-button { cursor: pointer; }
+.investor-group-chevron { flex: 0 0 auto; margin-left: auto; color: #77768b; transition: transform .18s; }
+.investor-group-chevron.is-open { transform: rotate(180deg); }
+.investor-submenu { display: flex; flex-direction: column; gap: 1px; margin: 1px 0 3px 20px; padding-left: 13px; border-left: 1px solid #363543; }
+.investor-nav-child { min-height: 33px; gap: 10px; padding: 0 9px; font-size: 11px; }
+.investor-submenu-dot { flex: 0 0 5px; width: 5px; height: 5px; border-radius: 50%; background: #6c6a7d; }
+.investor-nav-child.is-active .investor-submenu-dot { background: #fff; }
+.investor-nav-divider { height: 1px; flex: 0 0 auto; margin: 14px 9px; background: #292835; }
+.investor-plan-tier { max-width: 70px; overflow: hidden; margin-left: auto; border-radius: 6px; padding: 3px 6px; background: #272631; color: #cbc6dd; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.investor-plan-tier + .investor-group-chevron { margin-left: 0; }
+.investor-sidebar-footer { margin-top: auto; padding-top: 8px; }
+.investor-sidebar-footer .investor-nav-divider { margin-top: 6px; }
+.investor-account { display: flex; align-items: center; gap: 10px; margin: 13px 6px 0; padding-top: 13px; border-top: 1px solid #292835; }
+.investor-account-avatar { display: grid; width: 33px; height: 33px; flex: 0 0 33px; place-items: center; border-radius: 50%; background: #35294c; color: #dac7ff; font-size: 10px; font-weight: 800; }
+.investor-account-copy { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.investor-account-copy strong { overflow: hidden; color: #fff; font-size: 11px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.investor-account-copy small { color: #8d8b9d; font-size: 10px; }
+.startup-sidebar { background: #0b0b10; border-color: #22212d; color: #c8c8d2; scrollbar-color: #3b3b49 #0b0b10; }
+.startup-nav-heading { color: #89899a; }
+.startup-nav-link { color: #aaaab8; text-decoration: none; }
+.startup-nav-link > svg:first-child { color: #9999aa; }
+.startup-nav-link:hover { background: #1c1b29; color: #fff; }
+.startup-nav-link:hover > svg:first-child { color: #d6cbff; }
+.startup-nav-link.is-active { background: linear-gradient(105deg, #633ef2 0%, #5b5cf7 60%, #4b67e9 100%); color: #fff; box-shadow: 0 7px 22px rgb(83 68 230 / 18%); font-weight: 650; }
+.startup-nav-link.is-active > svg:first-child { color: #fff; }
+.startup-collapse-button, .startup-mobile-close { border-color: #393846; color: #a7a6ba; }
+.startup-collapse-button:hover, .startup-mobile-close:hover { background: #242334; color: #fff; }
+.startup-nav-divider { background: #292835; }
+.startup-workspace-count { background: #272631; color: #cbc6dd; }
+.startup-nav-link.is-active .startup-workspace-count { background: rgb(255 255 255 / 20%); color: #fff; }
+.startup-account-avatar { background: #35294c; color: #dac7ff; }
+.startup-account-copy strong { color: #fff; }
+.startup-account-copy small { color: #8d8b9d; }
+@media (min-width: 1024px) {
+  .investor-mobile-close { display: none; }
+  .investor-sidebar.is-collapsed { width: 76px; align-items: center; padding-inline: 10px; }
+  .investor-sidebar.is-collapsed .investor-sidebar-header { min-height: 91px; width: 100%; padding: 0; }
+  .investor-sidebar.is-collapsed .investor-brand-full, .investor-sidebar.is-collapsed .investor-nav-heading, .investor-sidebar.is-collapsed .investor-nav-label, .investor-sidebar.is-collapsed .investor-group-chevron, .investor-sidebar.is-collapsed .investor-plan-tier, .investor-sidebar.is-collapsed .investor-submenu, .investor-sidebar.is-collapsed .investor-account-copy { display: none; }
+  .investor-sidebar.is-collapsed .investor-brand-compact { display: block; margin-top: 2px; }
+  .investor-sidebar.is-collapsed .investor-collapse-button { top: 55px; right: 14px; }
+  .investor-sidebar.is-collapsed .investor-primary-nav, .investor-sidebar.is-collapsed .investor-secondary-nav, .investor-sidebar.is-collapsed .investor-sidebar-footer { width: 100%; }
+  .investor-sidebar.is-collapsed .investor-nav-link { justify-content: center; padding: 0; }
+  .investor-sidebar.is-collapsed .investor-nav-divider { margin-inline: 5px; }
+  .investor-sidebar.is-collapsed .investor-account { justify-content: center; margin-inline: 0; }
+}
+
+.theme-toggle { display: grid; width: 36px; height: 36px; flex: 0 0 36px; place-items: center; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); color: var(--text-secondary); transition: background-color .18s, color .18s, border-color .18s; }
+.theme-toggle:hover { border-color: var(--accent); color: var(--accent); background: var(--surface-soft); }
+
+/* Light is the default palette. These rules reverse the legacy dark class remapping. */
+:root[data-theme="light"] .bg-white { background-color: #FFFFFF; }
+:root[data-theme="light"] [class~="bg-white/90"] { background-color: rgb(255 255 255 / 94%); }
+:root[data-theme="light"] [class~="bg-white/80"] { background-color: rgb(255 255 255 / 82%); }
+:root[data-theme="light"] .bg-slate-50, :root[data-theme="light"] .bg-slate-100,
+:root[data-theme="light"] [class~="bg-slate-50/50"], :root[data-theme="light"] [class~="bg-slate-50/70"], :root[data-theme="light"] [class~="bg-slate-50/80"],
+:root[data-theme="light"] [class~="bg-slate-100/80"] { background-color: #EEF0F7; }
+:root[data-theme="light"] .bg-slate-200 { background-color: #E2E5EF; }
+:root[data-theme="light"] .bg-slate-700 { background-color: #334155; }
+:root[data-theme="light"] .bg-slate-800 { background-color: #1E293B; }
+:root[data-theme="light"] .bg-slate-900 { background-color: #172033; }
+:root[data-theme="light"] [class~="bg-[#f6f7fb]"], :root[data-theme="light"] [class~="bg-[#0d1626]"] { background-color: #F7F8FC; }
+:root[data-theme="light"] [class~="bg-[#17233a]"], :root[data-theme="light"] [class~="bg-[#17233b]"] { background-color: #28324D; }
+
+:root[data-theme="light"] .text-slate-900, :root[data-theme="light"] .text-slate-800 { color: #171923; }
+:root[data-theme="light"] .text-slate-700 { color: #354052; }
+:root[data-theme="light"] .text-slate-600 { color: #4D596C; }
+:root[data-theme="light"] .text-slate-500 { color: #586174; }
+:root[data-theme="light"] .text-slate-400 { color: #758094; }
+:root[data-theme="light"] .text-slate-300 { color: #A1A9B8; }
+:root[data-theme="light"] .text-slate-200 { color: #D2D7E1; }
+:root[data-theme="light"] .text-slate-100 { color: #F7F8FC; }
+:root[data-theme="light"] .text-indigo-500, :root[data-theme="light"] .text-indigo-600, :root[data-theme="light"] .text-indigo-700 { color: #5B55DF; }
+:root[data-theme="light"] .text-indigo-800, :root[data-theme="light"] .text-indigo-900 { color: #403AAD; }
+:root[data-theme="light"] .text-violet-600, :root[data-theme="light"] .text-violet-700 { color: #7242AD; }
+:root[data-theme="light"] .text-teal-600, :root[data-theme="light"] .text-teal-800 { color: #167A5B; }
+:root[data-theme="light"] .text-emerald-700 { color: #167A5B; }
+:root[data-theme="light"] .text-amber-500, :root[data-theme="light"] .text-amber-600, :root[data-theme="light"] .text-amber-700, :root[data-theme="light"] .text-amber-800, :root[data-theme="light"] .text-amber-900 { color: #A3620A; }
+:root[data-theme="light"] .text-rose-500, :root[data-theme="light"] .text-rose-600, :root[data-theme="light"] .text-rose-700, :root[data-theme="light"] .text-rose-800, :root[data-theme="light"] .text-red-600 { color: #C13C59; }
+
+:root[data-theme="light"] .bg-indigo-50, :root[data-theme="light"] .bg-indigo-100,
+:root[data-theme="light"] [class~="bg-indigo-50/30"], :root[data-theme="light"] [class~="bg-indigo-50/50"], :root[data-theme="light"] [class~="bg-indigo-50/60"], :root[data-theme="light"] [class~="bg-indigo-50/70"] { background-color: #ECEBFF; }
+:root[data-theme="light"] .bg-violet-100, :root[data-theme="light"] .bg-violet-200 { background-color: #F0E9FB; }
+:root[data-theme="light"] .bg-teal-50 { background-color: #E9F7F1; }
+:root[data-theme="light"] .bg-emerald-50 { background-color: #E9F7F1; }
+:root[data-theme="light"] .bg-amber-50, :root[data-theme="light"] [class~="bg-amber-50/60"], :root[data-theme="light"] [class~="bg-amber-50/70"] { background-color: #FFF5E3; }
+:root[data-theme="light"] .bg-rose-50, :root[data-theme="light"] [class~="bg-rose-50/60"] { background-color: #FFF0F3; }
+:root[data-theme="light"] .border-slate-100, :root[data-theme="light"] .border-slate-200,
+:root[data-theme="light"] [class~="border-slate-200/70"], :root[data-theme="light"] [class~="border-slate-200/80"] { border-color: #DBDFEA; }
+:root[data-theme="light"] .divide-slate-100 > :not(:last-child) { border-color: #DBDFEA; }
+:root[data-theme="light"] .border-indigo-100 { border-color: #D9D5FF; }
+:root[data-theme="light"] .border-indigo-200, :root[data-theme="light"] [class~="border-indigo-200/70"] { border-color: #C5BEFF; }
+:root[data-theme="light"] .border-amber-100, :root[data-theme="light"] .border-amber-200 { border-color: #F4D8A5; }
+:root[data-theme="light"] .border-rose-100 { border-color: #F3C9D2; }
+:root[data-theme="light"] .hover\:bg-slate-50:hover, :root[data-theme="light"] .hover\:bg-slate-100:hover { background-color: #E9ECF4; }
+:root[data-theme="light"] .hover\:bg-indigo-50:hover, :root[data-theme="light"] .hover\:bg-indigo-100:hover { background-color: #DEDDFB; }
+:root[data-theme="light"] .hover\:text-slate-700:hover, :root[data-theme="light"] .hover\:text-slate-800:hover { color: #171923; }
+:root[data-theme="light"] .hover\:text-indigo-600:hover, :root[data-theme="light"] .hover\:text-indigo-700:hover { color: #403AAD; }
+:root[data-theme="light"] .from-indigo-50 { --tw-gradient-from: #ECEBFF; }
+:root[data-theme="light"] .via-white { --tw-gradient-via: #FFFFFF; }
+:root[data-theme="light"] .to-teal-50 { --tw-gradient-to: #E9F7F1; }
+:root[data-theme="light"] input, :root[data-theme="light"] select, :root[data-theme="light"] textarea { color-scheme: light; }
+:root[data-theme="light"] input::placeholder, :root[data-theme="light"] textarea::placeholder { color: #8C95A5; }
+:root[data-theme="light"] select option { background: #FFFFFF; color: #171923; }
+:root[data-theme="light"] dialog { background: #FFFFFF; color: #171923; }
+:root[data-theme="light"] :where(*):not(html) { scrollbar-color: #B9BECA #F1F2F7; }
+
+/* Investor navigation is light as well; active navigation keeps the brand gradient. */
+:root[data-theme="light"] .investor-sidebar { background: #FFFFFF; border-color: #E4E7F0; color: #4D5566; scrollbar-color: #B9BECA #FFFFFF; }
+:root[data-theme="light"] .investor-sidebar .brand-logo { filter: brightness(0) saturate(100%) opacity(.86); }
+:root[data-theme="light"] .investor-brand-full p, :root[data-theme="light"] .investor-nav-heading { color: #667085; }
+:root[data-theme="light"] .investor-collapse-button, :root[data-theme="light"] .investor-mobile-close { border-color: #DDE1EA; color: #687084; }
+:root[data-theme="light"] .investor-collapse-button:hover, :root[data-theme="light"] .investor-mobile-close:hover { background: #EEF0F7; color: #171923; }
+:root[data-theme="light"] .investor-nav-link { color: #586174; }
+:root[data-theme="light"] .investor-nav-link > svg:first-child { color: #7D8495; }
+:root[data-theme="light"] .investor-nav-link:hover { background: #F0EFFF; color: #3934A6; }
+:root[data-theme="light"] .investor-nav-link:hover > svg:first-child { color: #5B55DF; }
+:root[data-theme="light"] .investor-nav-link.is-active { background: linear-gradient(105deg, #6657EB, #4F6FEB); color: #FFFFFF; }
+:root[data-theme="light"] .investor-nav-link.is-active > svg:first-child { color: #FFFFFF; }
+:root[data-theme="light"] .investor-nav-link.is-group-active { color: #514BC1; }
+:root[data-theme="light"] .investor-group-chevron { color: #7C8495; }
+:root[data-theme="light"] .investor-submenu { border-color: #E1E3ED; }
+:root[data-theme="light"] .investor-submenu-dot { background: #A8A8B9; }
+:root[data-theme="light"] .investor-nav-child.is-active .investor-submenu-dot { background: #FFFFFF; }
+:root[data-theme="light"] .investor-nav-divider, :root[data-theme="light"] .investor-account { border-color: #E6E8EF; }
+:root[data-theme="light"] .investor-nav-divider { background: #E6E8EF; }
+:root[data-theme="light"] .investor-plan-tier { background: #ECEBFF; color: #514BC1; }
+:root[data-theme="light"] .investor-account-avatar { background: #ECEBFF; color: #514BC1; }
+:root[data-theme="light"] .investor-account-copy strong { color: #171923; }
+:root[data-theme="light"] .investor-account-copy small { color: #7C8495; }
+:root[data-theme="light"] .investor-brand-compact .brand-badge { background: #ECEBFF; border-color: #D9D5FF; color: #514BC1; }
+
+/* Startup navigation uses the same light palette as Investor navigation. */
+:root[data-theme="light"] .startup-sidebar { background: #FFFFFF; border-color: #E4E7F0; color: #4D5566; scrollbar-color: #B9BECA #FFFFFF; }
+:root[data-theme="light"] .startup-sidebar .brand-logo { filter: brightness(0) saturate(100%) opacity(.86); }
+:root[data-theme="light"] .startup-sidebar .brand-badge { background: #ECEBFF; border-color: #D9D5FF; color: #514BC1; }
+:root[data-theme="light"] .startup-sidebar .brand-link:hover { background: #F0EFFF; }
+:root[data-theme="light"] .startup-nav-heading { color: #667085; }
+:root[data-theme="light"] .startup-nav-link { color: #586174; }
+:root[data-theme="light"] .startup-nav-link > svg:first-child { color: #7D8495; }
+:root[data-theme="light"] .startup-nav-link:hover { background: #F0EFFF; color: #3934A6; }
+:root[data-theme="light"] .startup-nav-link:hover > svg:first-child { color: #5B55DF; }
+:root[data-theme="light"] .startup-nav-link.is-active { background: linear-gradient(105deg, #6657EB, #4F6FEB); color: #FFFFFF; }
+:root[data-theme="light"] .startup-nav-link.is-active > svg:first-child { color: #FFFFFF; }
+:root[data-theme="light"] .startup-collapse-button, :root[data-theme="light"] .startup-mobile-close { border-color: #DDE1EA; color: #687084; }
+:root[data-theme="light"] .startup-collapse-button:hover, :root[data-theme="light"] .startup-mobile-close:hover { background: #EEF0F7; color: #171923; }
+:root[data-theme="light"] .startup-nav-divider { background: #E6E8EF; }
+:root[data-theme="light"] .startup-workspace-count { background: #ECEBFF; color: #514BC1; }
+:root[data-theme="light"] .startup-nav-link.is-active .startup-workspace-count { background: rgb(255 255 255 / 20%); color: #FFFFFF; }
+:root[data-theme="light"] .startup-account-avatar { background: #ECEBFF; color: #514BC1; }
+:root[data-theme="light"] .startup-account-copy strong { color: #171923; }
+:root[data-theme="light"] .startup-account-copy small { color: #7C8495; }
+
+/* Older shared sidebar styles remain for legacy views. */
+:root[data-theme="light"] .legacy-sidebar .text-slate-500 { color: #A5A9BA; }
+:root[data-theme="light"] .legacy-sidebar .text-slate-400 { color: #B5B8C7; }
+:root[data-theme="light"] .legacy-sidebar .text-slate-300 { color: #D4D6E0; }
+:root[data-theme="light"] .legacy-sidebar .text-slate-200 { color: #E7E8F0; }

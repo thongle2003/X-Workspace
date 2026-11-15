@@ -13,11 +13,11 @@ const reportResult = () => ({
 });
 const profile = {name:'Công ty riêng tư',industry:'SaaS',stage:'Seed',location:'TP.HCM',summary:'Thông tin công bố dành cho nhà đầu tư.',target:1000};
 
-async function fixture(t,{provider=async()=>reportResult(),chatProvider=async()=>({model:'gpt-6-astra',provider:'ModelAPI',requestId:'chat-http-test',text:'Hãy kiểm tra dòng tiền.',usage:{inputTokens:80,outputTokens:20,totalTokens:100}}),configured=true,publicOrigin='',publicDemo=false,backupAdminKey=''}={}) {
+async function fixture(t,{provider=async()=>reportResult(),chatProvider=async()=>({model:'gpt-6-astra',provider:'ModelAPI',requestId:'chat-http-test',text:'Hãy kiểm tra dòng tiền.',usage:{inputTokens:80,outputTokens:20,totalTokens:100}}),configured=true,publicOrigin='',publicDemo=false,backupAdminKey='',adminPasswordVerifier=null}={}) {
   const store=createWorkflowStore();
   let time=Date.now();
   const config=()=>getAIConfig(configured?{AI_BASE_URL:'https://api.modelapi.vn/v1',AI_API_KEY:'mock-secret-not-real',AI_MODEL:'gpt-6-astra'}:{});
-  const handler=createAPI({store,config,provider,chatProvider,now:()=>time,publicOrigin,publicDemo,backupAdminKey});
+  const handler=createAPI({store,config,provider,chatProvider,now:()=>time,publicOrigin,publicDemo,backupAdminKey,adminPassword:'',adminPasswordVerifier});
   const server=http.createServer((req,res)=>{void handler(req,res);});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const base=`http://127.0.0.1:${server.address().port}`;
@@ -186,6 +186,21 @@ test('public demo locks upgrades on the API and new sessions never refill Free t
   const investor=await app.session('investor');assert.equal((await app.action(investor,{type:'change-plan',tier:'pro'})).status,403);assert.equal(app.store.snapshot('investor').plan.tier,'free');
 });
 
+
+test('deployed admin credential enables only admin login while public visitor access stays open',async t=>{
+  const disabled=await fixture(t,{publicDemo:true});
+  assert.equal((await disabled.request('/api/admin/dashboard')).status,404);
+  const app=await fixture(t,{publicDemo:true,adminPasswordVerifier:async supplied=>supplied==='private-test-password'});
+  assert.equal((await app.request('/api/demo/session',{body:{role:'investor'}})).status,200);
+  assert.equal((await app.request('/api/admin/dashboard')).status,401);
+  assert.equal((await app.request('/api/admin/session',{body:{password:'wrong'}})).status,401);
+  const login=await app.request('/api/admin/session',{body:{password:'private-test-password'}});
+  assert.equal(login.status,200);
+  const dashboard=await app.request('/api/admin/dashboard',{headers:{'x-admin-session':login.body.sessionToken}});
+  assert.equal(dashboard.status,200);
+  assert.equal(dashboard.body.source,'live');
+  assert.equal((await app.request('/api/demo/session',{body:{role:'founder'}})).status,200);
+});
 
 test('administrative backup is private and restores all shared data with an exact revision guard',async t=>{
   const key='backup-admin-key-for-tests-only';const source=await fixture(t,{backupAdminKey:key});const founder=await source.session('founder');await source.project(founder);

@@ -114,10 +114,11 @@ export async function startProduction() {
   // Import after startup so the API can load local .env before reading settings.
   const { loadLocalEnv } = await import('./local-env.mjs');loadLocalEnv();
   const { createAPI } = await import('./api.mjs');
+  const { verifyDeployedAdminPassword } = await import('./admin-credential.mjs');
   const { publicOrigin, password, publicDemo } = productionAccess();
   const port = Number(process.env.PORT || 10000);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be a valid port number.');
-  const server = createProductionServer({ api:createAPI({publicOrigin,publicDemo}), password, publicOrigin });
+  const server = createProductionServer({ api:createAPI({publicOrigin,publicDemo,adminPasswordVerifier:verifyDeployedAdminPassword}), password, publicOrigin });
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '0.0.0.0', resolve); });
   console.log(`2G2BT production server listening on port ${port}`);
   let stopping = false;

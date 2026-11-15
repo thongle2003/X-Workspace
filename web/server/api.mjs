@@ -18,7 +18,8 @@ async function json(req,maxBytes=2_200_000) {
   let size=0;const chunks=[];for await(const chunk of req){size+=chunk.length;if(size>maxBytes)throw fail(413,'FILE_SIZE','Dữ liệu vượt giới hạn của yêu cầu.');chunks.push(chunk);}
   try { const data=JSON.parse(Buffer.concat(chunks).toString('utf8'));if(!data||typeof data!=='object'||Array.isArray(data))throw new Error();return data; } catch { throw fail(400,'JSON','JSON phải là một đối tượng hợp lệ.'); }
 }
-export function createAPI({store=createWorkflowStore({filePath:process.env.WORKFLOW_DATA_FILE||path.resolve(webRoot,'../.runtime/workflow.json'),seedMarketplace:process.env.PUBLIC_DEMO==='true'}), config=()=>getAIConfig(), provider=generateFinancialReport, chatProvider=generateChatReply, now=()=>Date.now(), publicOrigin=process.env.APP_ORIGIN||process.env.RENDER_EXTERNAL_URL||'', publicDemo=process.env.PUBLIC_DEMO==='true', backupAdminKey=process.env.BACKUP_ADMIN_KEY||'', adminPassword=process.env.ADMIN_DASHBOARD_PASSWORD||''}={}) {
+export function createAPI({store=createWorkflowStore({filePath:process.env.WORKFLOW_DATA_FILE||path.resolve(webRoot,'../.runtime/workflow.json'),seedMarketplace:process.env.PUBLIC_DEMO==='true'}), config=()=>getAIConfig(), provider=generateFinancialReport, chatProvider=generateChatReply, now=()=>Date.now(), publicOrigin=process.env.APP_ORIGIN||process.env.RENDER_EXTERNAL_URL||'', publicDemo=process.env.PUBLIC_DEMO==='true', backupAdminKey=process.env.BACKUP_ADMIN_KEY||'', adminPassword=process.env.ADMIN_DASHBOARD_PASSWORD||'', adminPasswordVerifier=null}={}) {
+  if(adminPasswordVerifier!==null&&typeof adminPasswordVerifier!=='function')throw new TypeError('adminPasswordVerifier must be a function.');
   const sessions=new Map();const inFlight=new Set();
   const adminSessions=new Map();const loginAttempts=new Map();
   const serviceMonitor=createServiceMonitor({now});
@@ -44,7 +45,7 @@ export function createAPI({store=createWorkflowStore({filePath:process.env.WORKF
       if(req.method==='GET'&&url.pathname==='/api/health')return send(res,200,{ok:true,mode:hostedOrigin?'hosted-demo':'local-demo'});
       if(req.method==='GET'&&url.pathname==='/api/ai/status')return send(res,200,{...aiStatus(config()),publicDemo,allowPlanChanges:!publicDemo});
       if(url.pathname.startsWith('/api/admin/dashboard')||url.pathname==='/api/admin/session'||url.pathname==='/api/admin/services'||url.pathname.startsWith('/api/admin/cases/')||url.pathname.startsWith('/api/admin/workspaces/')||url.pathname.startsWith('/api/admin/accounts/')){
-        if(!adminPassword)throw fail(404,'NOT_FOUND','Dashboard quản trị chưa được bật.');
+        if(!adminPassword&&!adminPasswordVerifier)throw fail(404,'NOT_FOUND','Dashboard quản trị chưa được bật.');
         if(req.method==='POST'&&url.pathname==='/api/admin/session'){
           const key=String(req.socket?.remoteAddress||'local');
           const attempts=(loginAttempts.get(key)||[]).filter(at=>now()-at<60_000);
@@ -52,7 +53,8 @@ export function createAPI({store=createWorkflowStore({filePath:process.env.WORKF
           const body=await json(req,2048);
           const supplied=typeof body.password==='string'?body.password:'';
           const digest=value=>createHash('sha256').update(value).digest();
-          if(!timingSafeEqual(digest(supplied),digest(adminPassword))){attempts.push(now());loginAttempts.set(key,attempts);throw fail(401,'ADMIN_AUTH','Mật khẩu quản trị không đúng.');}
+          const authorized=adminPassword?timingSafeEqual(digest(supplied),digest(adminPassword)):await adminPasswordVerifier(supplied);
+          if(!authorized){attempts.push(now());loginAttempts.set(key,attempts);throw fail(401,'ADMIN_AUTH','Mật khẩu quản trị không đúng.');}
           loginAttempts.delete(key);
           const token=randomBytes(32).toString('hex');
           adminSessions.set(token,now()+8*60*60*1000);

@@ -72,6 +72,22 @@ test('role switch opens the admin login from the app header and Investor AI Chat
   await expect(page).toHaveURL(/#\/admin\/overview$/);
   await expect(page.getByRole('heading',{name:'Đăng nhập quản trị'})).toBeVisible();
 });
+test('public demo admin dashboard is read-only and shows published projects only',async({page})=>{
+  await page.route('**/api/admin/dashboard',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
+    source:'public-demo-readonly',revision:0,updatedAt:'2026-11-15T00:00:00.000Z',
+    accounts:[],workspaces:[{id:'public-1',name:'Startup công khai',industry:'Climate Tech',published:true,createdAt:'2026-11-01T00:00:00.000Z',updatedAt:'2026-11-02T00:00:00.000Z'}],
+    cases:[],connections:[],investments:[],transactions:[],audit:[],
+  })}));
+  await page.goto('/#/admin/accounts');
+  await expect(page).toHaveURL(/#\/admin\/overview$/);
+  await expect(page.getByRole('heading',{name:'Startup đã công bố'})).toBeVisible();
+  await expect(page.getByText('Startup công khai')).toBeVisible();
+  await expect(page.getByText('Dashboard công khai · chỉ xem')).toBeVisible();
+  await expect(page.getByRole('navigation',{name:'Quản trị'}).getByRole('button')).toHaveCount(1);
+  await expect(page.getByRole('button',{name:'Đăng xuất'})).toHaveCount(0);
+  const mutationStatus=await page.evaluate(async()=>{const response=await fetch('/api/admin/accounts/founder',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({status:'suspended',expectedRevision:0})});return response.status;});
+  expect(mutationStatus).toBe(404);
+});
 test('server Case route, Startup management and case pricing open their intended pages',async({page,workflow})=>{
   const id=create(workflow.store);
   await page.goto('/#/cases');

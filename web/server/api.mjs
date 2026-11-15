@@ -2,7 +2,7 @@ import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createWorkflowStore } from './workflow-store.mjs';
-import { buildLiveAdminSnapshot } from './admin-live.mjs';
+import { buildLiveAdminSnapshot, buildPublicDemoAdminSnapshot } from './admin-live.mjs';
 import { buildServiceSnapshot, createServiceMonitor } from './admin-services.mjs';
 import { getAIConfig, aiStatus, buildFinancialPrompt, buildChatPrompt, estimateInputTokens, generateFinancialReport, generateChatReply } from './ai-provider.mjs';
 import { parseCSV, analyze } from '../domain.js';
@@ -43,6 +43,11 @@ export function createAPI({store=createWorkflowStore({filePath:process.env.WORKF
       if(req.headers.origin){const origin=new URL(req.headers.origin);if(origin.host!==req.headers.host||!(isLocal&&hostAllowed(origin.hostname)||isHosted&&origin.origin===hostedOrigin))throw fail(403,'ORIGIN','Nguồn yêu cầu không hợp lệ.');}
       if(req.method==='GET'&&url.pathname==='/api/health')return send(res,200,{ok:true,mode:hostedOrigin?'hosted-demo':'local-demo'});
       if(req.method==='GET'&&url.pathname==='/api/ai/status')return send(res,200,{...aiStatus(config()),publicDemo,allowPlanChanges:!publicDemo});
+      if(publicDemo&&req.method==='GET'&&url.pathname==='/api/admin/dashboard'){
+        const token=req.headers['x-admin-session'];
+        const authenticated=typeof token==='string'&&adminSessions.has(token)&&adminSessions.get(token)>=now();
+        if(!authenticated)return send(res,200,buildPublicDemoAdminSnapshot(store.exportData(),now()));
+      }
       if(url.pathname.startsWith('/api/admin/dashboard')||url.pathname==='/api/admin/session'||url.pathname==='/api/admin/services'||url.pathname.startsWith('/api/admin/cases/')||url.pathname.startsWith('/api/admin/workspaces/')||url.pathname.startsWith('/api/admin/accounts/')){
         if(!adminPassword)throw fail(404,'NOT_FOUND','Dashboard quản trị chưa được bật.');
         if(req.method==='POST'&&url.pathname==='/api/admin/session'){

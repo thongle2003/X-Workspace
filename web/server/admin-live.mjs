@@ -68,3 +68,28 @@ export function buildLiveAdminSnapshot(workflow, now=Date.now()) {
   return {source:'live',revision:workflow.revision,syncedAt:new Date(now).toISOString(),
     updatedAt:new Date(now).toISOString(),accounts,workspaces,cases,connections,investments,transactions,audit:[]};
 }
+
+export function buildPublicDemoAdminSnapshot(workflow, now=Date.now()) {
+  const workspaces=(workflow.workspaces||[]).filter(item=>item.published).map(item=>({
+    id:item.id,
+    name:item.profile?.name||item.name,
+    industry:item.profile?.industry||'',
+    published:true,
+    createdAt:item.createdAt,
+    updatedAt:item.updatedAt,
+  }));
+  const sampledAt=new Date(now).toISOString();
+  return {
+    source:'public-demo-readonly',
+    revision:0,
+    syncedAt:sampledAt,
+    updatedAt:sampledAt,
+    accounts:[],
+    workspaces,
+    cases:[],
+    connections:[],
+    investments:[],
+    transactions:[],
+    audit:[],
+  };
+}

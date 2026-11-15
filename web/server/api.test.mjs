@@ -13,11 +13,11 @@ const reportResult = () => ({
 });
 const profile = {name:'Công ty riêng tư',industry:'SaaS',stage:'Seed',location:'TP.HCM',summary:'Thông tin công bố dành cho nhà đầu tư.',target:1000};
 
-async function fixture(t,{provider=async()=>reportResult(),chatProvider=async()=>({model:'gpt-6-astra',provider:'ModelAPI',requestId:'chat-http-test',text:'Hãy kiểm tra dòng tiền.',usage:{inputTokens:80,outputTokens:20,totalTokens:100}}),configured=true,publicOrigin='',publicDemo=false,backupAdminKey=''}={}) {
+async function fixture(t,{provider=async()=>reportResult(),chatProvider=async()=>({model:'gpt-6-astra',provider:'ModelAPI',requestId:'chat-http-test',text:'Hãy kiểm tra dòng tiền.',usage:{inputTokens:80,outputTokens:20,totalTokens:100}}),configured=true,publicOrigin='',publicDemo=false,backupAdminKey='',adminPassword=''}={}) {
   const store=createWorkflowStore();
   let time=Date.now();
   const config=()=>getAIConfig(configured?{AI_BASE_URL:'https://api.modelapi.vn/v1',AI_API_KEY:'mock-secret-not-real',AI_MODEL:'gpt-6-astra'}:{});
-  const handler=createAPI({store,config,provider,chatProvider,now:()=>time,publicOrigin,publicDemo,backupAdminKey});
+  const handler=createAPI({store,config,provider,chatProvider,now:()=>time,publicOrigin,publicDemo,backupAdminKey,adminPassword});
   const server=http.createServer((req,res)=>{void handler(req,res);});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const base=`http://127.0.0.1:${server.address().port}`;
@@ -70,6 +70,31 @@ test('HTTP origin checks and public AI status do not expose provider credentials
   assert.equal(status.headers.get('cache-control'),'no-store');
   const denied=await app.request('/api/demo/session',{body:{role:'founder'},headers:{origin:'https://untrusted.example'}});assert.equal(denied.status,403);
   const badRole=await app.request('/api/demo/session',{body:{role:'admin'}});assert.equal(badRole.status,400);
+});
+
+test('public demo admin view exposes published startup names only and keeps all admin actions locked',async t=>{
+  const app=await fixture(t,{publicDemo:true});
+  const founder=await app.session('founder');
+  const workspaceId=await app.project(founder);
+  await app.action(founder,{type:'create-workspace',name:'Bản nháp riêng',goal:'Không được xuất hiện trên dashboard công khai.'});
+
+  const dashboard=await app.request('/api/admin/dashboard');
+  assert.equal(dashboard.status,200);
+  assert.equal(dashboard.body.source,'public-demo-readonly');
+  assert.deepEqual(dashboard.body.workspaces.map(item=>item.name),['Công ty riêng tư']);
+  assert.deepEqual(Object.keys(dashboard.body.workspaces[0]).sort(),['createdAt','id','industry','name','published','updatedAt']);
+  assert.deepEqual(dashboard.body.accounts,[]);
+  assert.deepEqual(dashboard.body.cases,[]);
+  assert.deepEqual(dashboard.body.connections,[]);
+  assert.deepEqual(dashboard.body.investments,[]);
+  assert.deepEqual(dashboard.body.transactions,[]);
+  assert.ok(!JSON.stringify(dashboard.body).includes('private-cashflow.csv'));
+  assert.ok(!JSON.stringify(dashboard.body).includes('Không được xuất hiện'));
+
+  assert.equal((await app.request('/api/admin/services')).status,404);
+  assert.equal((await app.request(`/api/admin/workspaces/${workspaceId}`,{method:'PATCH',body:{flagged:true,expectedRevision:app.store.exportData().revision}})).status,404);
+  assert.equal(app.store.exportData().workspaces.find(item=>item.id===workspaceId).flagged,false);
+  assert.equal((await app.request('/api/admin/session',{body:{password:'any-password'}})).status,404);
 });
 
 test('private CSV and AI reports are withheld until approval, then revoked by owner',async t=>{

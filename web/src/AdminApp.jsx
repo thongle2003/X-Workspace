@@ -74,8 +74,6 @@ function Login({ onLogin, busy, error }) {
 
 export function AdminApp() {
   const [token,setToken]=useState(()=>sessionStorage.getItem(TOKEN_KEY) || '');
-  const [publicReadOnly,setPublicReadOnly]=useState(false);
-  const [authChecking,setAuthChecking]=useState(()=>!sessionStorage.getItem(TOKEN_KEY));
   const [data,setData]=useState(null);
   const [services,setServices]=useState(null);
   const [tab,setTab]=useState(routeTab);
@@ -102,19 +100,8 @@ export function AdminApp() {
   async function refresh(){setError('');try{setData(await api('/api/admin/dashboard'));}catch(cause){setError(cause.message);}}
   async function refreshServices(){setError('');try{setServices(await api('/api/admin/services'));}catch(cause){setError(cause.message);}}
   useEffect(()=>{const onHash=()=>{setTab(routeTab());setSearch('');setFilter('all');setSelected(routeRecord());setConfirmDelete(false);setMobileOpen(false);};window.addEventListener('hashchange',onHash);return()=>window.removeEventListener('hashchange',onHash);},[]);
-  useEffect(()=>{
-    if(token){setAuthChecking(false);setPublicReadOnly(false);refresh();return;}
-    let active=true;
-    setAuthChecking(true);
-    api('/api/admin/dashboard').then(snapshot=>{
-      if(!active)return;
-      if(snapshot.source==='public-demo-readonly'){setData(snapshot);setPublicReadOnly(true);setTab('overview');location.hash='/admin/overview';}
-    }).catch(cause=>{if(active)setError(cause.message);}).finally(()=>{if(active)setAuthChecking(false);});
-    return()=>{active=false;};
-  },[token]);
-  useEffect(()=>{if(!token&&!publicReadOnly)return;const timer=setInterval(refresh,5000);return()=>clearInterval(timer);},[token,publicReadOnly]);
+  useEffect(()=>{if(!token)return;refresh();const timer=setInterval(refresh,5000);return()=>clearInterval(timer);},[token]);
   useEffect(()=>{if(!token||tab!=='services')return;refreshServices();const timer=setInterval(refreshServices,10000);return()=>clearInterval(timer);},[token,tab]);
-  useEffect(()=>{if(publicReadOnly&&tab!=='overview'){setTab('overview');location.hash='/admin/overview';}},[publicReadOnly,tab]);
   useEffect(()=>{if(!notice)return;const timeout=setTimeout(()=>setNotice(''),4000);return()=>clearTimeout(timeout);},[notice]);
   async function login(password){setBusy(true);setError('');try{const response=await fetch('/api/admin/session',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password})});const payload=await response.json();if(!response.ok)throw new Error(payload.message||'Đăng nhập thất bại.');sessionStorage.setItem(TOKEN_KEY,payload.sessionToken);setToken(payload.sessionToken);}catch(cause){setError(cause.message);}finally{setBusy(false);}}
   async function logout(){try{await api('/api/admin/session',{method:'DELETE'});}catch{/* A local session can already be expired. */}sessionStorage.removeItem(TOKEN_KEY);setToken('');setData(null);}
@@ -124,7 +111,6 @@ export function AdminApp() {
   function go(id){const page=defaultPage(id);location.hash=`/admin/${page}`;setTab(page);setSearch('');setFilter('all');setSelected(null);setConfirmDelete(false);setMobileOpen(false);}
   function goRecord(page,id){location.hash=`/admin/${page}?record=${encodeURIComponent(id)}`;setTab(page);setSelected(id);setConfirmDelete(false);}
   const group=groupOf(tab);
-  const visibleTabs=publicReadOnly?tabs.filter(item=>item.id==='overview'):tabs;
 
   const paid = useMemo(()=>data?.transactions.filter(item=>item.status==='paid'&&item.paidAt&&since(item.paidAt,period))||[],[data,period]);
   const visiblePaid = paid.filter(item=>source==='all'||item.type===source);
@@ -156,18 +142,15 @@ export function AdminApp() {
   const selectedAccount = tab==='accounts' ? account(selected) : null;
   const connectionPayments = selectedConnection ? data.transactions.filter(item=>item.connectionId===selectedConnection.id) : [];
 
-  if(authChecking)return <main className="adm-login-screen"><p className="adm-loading">Đang kiểm tra dashboard…</p></main>;
-  if(!token&&!publicReadOnly)return <Login onLogin={login} busy={busy} error={error}/>;
-  return <div className="adm-root"><aside className={`adm-sidebar ${mobileOpen?'open':''}`}><div className="adm-brand"><span className="adm-brand-mark">2G</span><span><strong>2GOOD2BETRUE</strong><small>{publicReadOnly?'PUBLIC DEMO':'ADMIN WORKSPACE'}</small></span><button className="adm-mobile-close" aria-label="Đóng menu" onClick={()=>setMobileOpen(false)}><X size={20}/></button></div><div className="adm-nav-title">{publicReadOnly?'CHỈ XEM':'ĐIỀU HÀNH'}</div><nav aria-label="Quản trị">{visibleTabs.map(({id,label,icon:Icon})=><button key={id} className={`adm-nav-item ${group===id?'active':''}`} onClick={()=>go(id)}><Icon size={19}/><span>{label}</span>{group===id&&<ChevronRight size={15} className="adm-nav-chevron"/>}</button>)}</nav><div className="adm-sidebar-bottom"><div className="adm-sample-small"><span className="adm-sample-dot adm-service-dot"/>{publicReadOnly?'Bản demo công khai':'Dữ liệu ứng dụng · đồng bộ'}</div>{publicReadOnly?<a className="adm-logout" href="/#/home"><ArrowRight size={18}/>Về ứng dụng</a>:<button className="adm-logout" onClick={logout}><LogOut size={18}/>Đăng xuất</button>}</div></aside>{mobileOpen&&<button className="adm-overlay" aria-label="Đóng menu" onClick={()=>setMobileOpen(false)}/>}
-    <div className="adm-main"><header className="adm-topbar"><button className="adm-menu" aria-label="Mở menu" onClick={()=>setMobileOpen(true)}><Menu size={22}/></button><div className="adm-breadcrumb">Quản trị <ChevronRight size={14}/> <strong>{tabs.find(item=>item.id===group)?.label}</strong></div><div className="adm-top-actions"><span className="adm-admin-pill"><ShieldCheck size={16}/> {publicReadOnly?'Chỉ xem':'Quản trị viên'}</span><button className="adm-icon-button" aria-label="Làm mới dữ liệu" title="Làm mới dữ liệu" onClick={refresh}><RefreshCw size={18}/></button></div></header>
-    <main className="adm-content"><div className="adm-page-intro"><div><div className="adm-eyebrow">{publicReadOnly?'BẢN DEMO CÔNG KHAI':'BẢNG ĐIỀU KHIỂN'}</div><h1>{tabs.find(item=>item.id===group)?.label}</h1><p>{publicReadOnly?'Chỉ xem danh sách Startup đã công bố; không hiển thị dữ liệu riêng tư hoặc thao tác quản trị.':group==='overview'?'Tình hình nền tảng và các việc cần theo dõi.':group==='startup'?'Workspace và case đang có trong Startup.':group==='finance'?'Phí nền tảng và danh mục đầu tư được theo dõi riêng.':group==='connections'?'Yêu cầu truy cập và phí kết nối giữa hai bên.':group==='services'?'Tình trạng API, nhà cung cấp AI và các tác vụ đang chạy.':'Tài khoản và vai trò trên nền tảng.'}</p></div><div className="adm-intro-actions"><span className="adm-service-source">{publicReadOnly?'Chỉ xem': 'Dữ liệu ứng dụng'}</span><span className="adm-updated">Đồng bộ {dateTime(data?.updatedAt)}</span></div></div>
+  if(!token)return <Login onLogin={login} busy={busy} error={error}/>;
+  return <div className="adm-root"><aside className={`adm-sidebar ${mobileOpen?'open':''}`}><div className="adm-brand"><span className="adm-brand-mark">2G</span><span><strong>2GOOD2BETRUE</strong><small>ADMIN WORKSPACE</small></span><button className="adm-mobile-close" aria-label="Đóng menu" onClick={()=>setMobileOpen(false)}><X size={20}/></button></div><div className="adm-nav-title">ĐIỀU HÀNH</div><nav aria-label="Quản trị">{tabs.map(({id,label,icon:Icon})=><button key={id} className={`adm-nav-item ${group===id?'active':''}`} onClick={()=>go(id)}><Icon size={19}/><span>{label}</span>{group===id&&<ChevronRight size={15} className="adm-nav-chevron"/>}</button>)}</nav><div className="adm-sidebar-bottom"><div className="adm-sample-small"><span className="adm-sample-dot adm-service-dot"/>Dữ liệu ứng dụng · đồng bộ</div><button className="adm-logout" onClick={logout}><LogOut size={18}/>Đăng xuất</button></div></aside>{mobileOpen&&<button className="adm-overlay" aria-label="Đóng menu" onClick={()=>setMobileOpen(false)}/>}
+    <div className="adm-main"><header className="adm-topbar"><button className="adm-menu" aria-label="Mở menu" onClick={()=>setMobileOpen(true)}><Menu size={22}/></button><div className="adm-breadcrumb">Quản trị <ChevronRight size={14}/> <strong>{tabs.find(item=>item.id===group)?.label}</strong></div><div className="adm-top-actions"><span className="adm-admin-pill"><ShieldCheck size={16}/> Quản trị viên</span><button className="adm-icon-button" aria-label="Làm mới dữ liệu" title="Làm mới dữ liệu" onClick={tab==='services'?refreshServices:refresh}><RefreshCw size={18}/></button></div></header>
+    <main className="adm-content"><div className="adm-page-intro"><div><div className="adm-eyebrow">BẢNG ĐIỀU KHIỂN</div><h1>{tabs.find(item=>item.id===group)?.label}</h1><p>{group==='overview'?'Tình hình nền tảng và các việc cần theo dõi.':group==='startup'?'Workspace và case đang có trong Startup.':group==='finance'?'Phí nền tảng và danh mục đầu tư được theo dõi riêng.':group==='connections'?'Yêu cầu truy cập và phí kết nối giữa hai bên.':group==='services'?'Tình trạng API, nhà cung cấp AI và các tác vụ đang chạy.':'Tài khoản và vai trò trên nền tảng.'}</p></div><div className="adm-intro-actions"><span className="adm-service-source">Dữ liệu ứng dụng</span><span className="adm-updated">{group==='services'?'Kiểm tra':'Đồng bộ'} {dateTime(group==='services'?services?.sampledAt:data?.updatedAt)}</span></div></div>
       {sectionTabs[group]&&<div className="adm-section-tabs" role="tablist" aria-label={`Mục ${tabs.find(item=>item.id===group)?.label}`}>{sectionTabs[group].map(([id,label])=><button key={id} type="button" role="tab" aria-selected={tab===id} className={tab===id?'active':''} onClick={()=>go(id)}>{label}</button>)}</div>}
-      {group==='overview'&&<div className="adm-sample-banner adm-live-banner"><span className="adm-sample-dot"/><div><strong>{publicReadOnly?'Dashboard công khai · chỉ xem':'Dữ liệu từ Startup / Investor'}</strong><span>{publicReadOnly?'Chỉ hiển thị các dự án đã công bố; không có thông tin tài khoản, kết nối, tài chính hay nút chỉnh sửa.':'Workspace, case, yêu cầu, khoản đầu tư và biên nhận được đọc trực tiếp từ ứng dụng dùng API máy chủ. Bản ?mode=demo lưu riêng trong trình duyệt. Khoản chờ không tính vào doanh thu.'}</span></div></div>}
+      {group==='overview'&&<div className="adm-sample-banner adm-live-banner"><span className="adm-sample-dot"/><div><strong>Dữ liệu từ Startup / Investor</strong><span>Workspace, case, yêu cầu, khoản đầu tư và biên nhận được đọc trực tiếp từ ứng dụng dùng API máy chủ. Bản ?mode=demo lưu riêng trong trình duyệt. Khoản chờ không tính vào doanh thu.</span></div></div>}
       {error&&<div className="adm-error-banner" role="alert">{error}<button onClick={()=>setError('')} aria-label="Đóng lỗi"><X size={16}/></button></div>}
       {!data?<div className="adm-loading">Đang tải dữ liệu quản trị…</div>:<>
-      {tab==='overview'&&(publicReadOnly?<Panel title="Startup đã công bố" subtitle={`${data.workspaces.length} hồ sơ công khai`}>
-        <div className="adm-activity">{data.workspaces.map(item=><div key={item.id}><span className="adm-activity-icon"><BriefcaseBusiness size={18}/></span><span><strong>{item.name}</strong><small>{item.industry||'Startup'} · Đã công bố</small></span></div>)}{!data.workspaces.length&&<Blank text="Chưa có Startup nào được công bố."/>}</div>
-      </Panel>:<>
+      {tab==='overview'&&<>
         <div className="adm-metrics">
           <Metric label="Doanh thu thuần" value={money(overviewRevenue)} hint="Biên nhận đã xác nhận · toàn bộ" icon={CreditCard} tone={overviewRevenue<0?'rose':'green'} negative={overviewRevenue<0} onClick={()=>go('revenue')}/>
           <Metric label="Khoản chờ" value={pending.length} hint={money(pending.reduce((sum,item)=>sum+item.amount,0))} icon={Clock3} tone="amber" onClick={()=>go('revenue')}/>
@@ -191,7 +174,7 @@ export function AdminApp() {
             </div>
           </Panel>
         </div>
-      </>)}
+      </>}
       {tab==='revenue'&&<>
         <div className="adm-toolbar"><Period value={period} onChange={setPeriod}/><select aria-label="Nguồn doanh thu" value={source} onChange={event=>setSource(event.target.value)}><option value="all">Tất cả nguồn thu</option>{Object.entries(typeText).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></div>
         <div className="adm-metrics three"><Metric label="Doanh thu thuần" value={money(total)} hint={`${visiblePaid.length} giao dịch đã thu trong kỳ`} icon={total<0?ArrowDownRight:ArrowUpRight} tone={total<0?'rose':'green'} negative={total<0}/><Metric label="Đang chờ" value={money(pending.filter(item=>source==='all'||item.type===source).reduce((sum,item)=>sum+item.amount,0))} hint="Chưa tính vào doanh thu" icon={Clock3} tone="amber"/><Metric label="Đã hoàn tiền" value={money(refundTotal)} hint="Đã trừ khỏi doanh thu thuần" icon={ArrowDownRight} tone="violet"/></div>

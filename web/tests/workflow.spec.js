@@ -58,6 +58,20 @@ test('Investor Home resolves to AI Chat while Dashboard keeps its own route',asy
   await expect(page).toHaveURL(/#\/home$/);
   await expect(page.getByRole('heading',{name:'Không gian làm việc cho startup và nhà đầu tư.'})).toBeVisible();
 });
+test('role switch opens the admin login from the app header and Investor AI Chat',async({page})=>{
+  await page.goto('/#/home');
+  await picker(page).selectOption('startup-demo');
+  await picker(page).selectOption('admin');
+  await expect(page).toHaveURL(/#\/admin\/overview$/);
+  await expect(page.getByRole('heading',{name:'Đăng nhập quản trị'})).toBeVisible();
+
+  await page.goto('/#/conversations');
+  await picker(page).selectOption('investor-demo');
+  await expect(page.getByRole('heading',{name:'Mình có thể giúp gì cho bạn?'})).toBeVisible();
+  await picker(page).selectOption('admin');
+  await expect(page).toHaveURL(/#\/admin\/overview$/);
+  await expect(page.getByRole('heading',{name:'Đăng nhập quản trị'})).toBeVisible();
+});
 test('server Case route, Startup management and case pricing open their intended pages',async({page,workflow})=>{
   const id=create(workflow.store);
   await page.goto('/#/cases');

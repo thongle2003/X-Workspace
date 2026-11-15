@@ -1,7 +1,9 @@
 import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createWorkflowStore, DEMO_USERS } from './workflow-store.mjs';
+import { createWorkflowStore } from './workflow-store.mjs';
+import { buildLiveAdminSnapshot } from './admin-live.mjs';
+import { buildServiceSnapshot, createServiceMonitor } from './admin-services.mjs';
 import { getAIConfig, aiStatus, buildFinancialPrompt, buildChatPrompt, estimateInputTokens, generateFinancialReport, generateChatReply } from './ai-provider.mjs';
 import { parseCSV, analyze } from '../domain.js';
 
@@ -16,18 +18,23 @@ async function json(req,maxBytes=2_200_000) {
   let size=0;const chunks=[];for await(const chunk of req){size+=chunk.length;if(size>maxBytes)throw fail(413,'FILE_SIZE','Dữ liệu vượt giới hạn của yêu cầu.');chunks.push(chunk);}
   try { const data=JSON.parse(Buffer.concat(chunks).toString('utf8'));if(!data||typeof data!=='object'||Array.isArray(data))throw new Error();return data; } catch { throw fail(400,'JSON','JSON phải là một đối tượng hợp lệ.'); }
 }
-export function createAPI({store=createWorkflowStore({filePath:process.env.WORKFLOW_DATA_FILE||path.resolve(webRoot,'../.runtime/workflow.json'),seedMarketplace:process.env.PUBLIC_DEMO==='true'}), config=()=>getAIConfig(), provider=generateFinancialReport, chatProvider=generateChatReply, now=()=>Date.now(), publicOrigin=process.env.APP_ORIGIN||process.env.RENDER_EXTERNAL_URL||'', publicDemo=process.env.PUBLIC_DEMO==='true', backupAdminKey=process.env.BACKUP_ADMIN_KEY||''}={}) {
+export function createAPI({store=createWorkflowStore({filePath:process.env.WORKFLOW_DATA_FILE||path.resolve(webRoot,'../.runtime/workflow.json'),seedMarketplace:process.env.PUBLIC_DEMO==='true'}), config=()=>getAIConfig(), provider=generateFinancialReport, chatProvider=generateChatReply, now=()=>Date.now(), publicOrigin=process.env.APP_ORIGIN||process.env.RENDER_EXTERNAL_URL||'', publicDemo=process.env.PUBLIC_DEMO==='true', backupAdminKey=process.env.BACKUP_ADMIN_KEY||'', adminPassword=process.env.ADMIN_DASHBOARD_PASSWORD||''}={}) {
   const sessions=new Map();const inFlight=new Set();
+  const adminSessions=new Map();const loginAttempts=new Map();
+  const serviceMonitor=createServiceMonitor({now});
   let hostedOrigin=null;
   if(publicOrigin){
     const configured=new URL(publicOrigin);
     if(configured.protocol!=='https:'||configured.username||configured.password||configured.pathname!=='/'||configured.search||configured.hash)throw new Error('APP_ORIGIN phải là origin HTTPS hợp lệ.');
     hostedOrigin=configured.origin;
   }
-  function actor(req) { const token=req.headers['x-demo-session'];const session=typeof token==='string'?sessions.get(token):undefined;if(!session||session.expires<now())throw fail(401,'SESSION','Phiên làm việc đã hết hạn. Vui lòng chọn lại vai trò.');return session.userId; }
+  function actor(req) { const token=req.headers['x-demo-session'];const session=typeof token==='string'?sessions.get(token):undefined;if(!session||session.expires<now())throw fail(401,'SESSION','Phiên làm việc đã hết hạn. Vui lòng chọn lại vai trò.');if(store.accountStatus(session.userId)==='suspended')throw fail(403,'ACCOUNT_SUSPENDED','Tài khoản đã bị quản trị viên tạm khóa.');return session.userId; }
   return async function handle(req,res,next) {
     const url=new URL(req.url,'http://localhost');
     if(!url.pathname.startsWith('/api/')) { if(next)return next();return send(res,404,{message:'Không tìm thấy.'}); }
+    const serviceKind=url.pathname==='/api/ai/analysis'?'analysis':url.pathname==='/api/ai/chat'?'chat':url.pathname==='/api/workflow/actions'?'workflow':null;
+    const started=now();let requestErrorCode='';
+    if(serviceKind)res.once('finish',()=>serviceMonitor.record({kind:serviceKind,status:res.statusCode,code:requestErrorCode,durationMs:now()-started}));
     try {
       const requestedHost=new URL(`http://${req.headers.host}`);
       const isLocal=hostAllowed(requestedHost.hostname);
@@ -36,6 +43,50 @@ export function createAPI({store=createWorkflowStore({filePath:process.env.WORKF
       if(req.headers.origin){const origin=new URL(req.headers.origin);if(origin.host!==req.headers.host||!(isLocal&&hostAllowed(origin.hostname)||isHosted&&origin.origin===hostedOrigin))throw fail(403,'ORIGIN','Nguồn yêu cầu không hợp lệ.');}
       if(req.method==='GET'&&url.pathname==='/api/health')return send(res,200,{ok:true,mode:hostedOrigin?'hosted-demo':'local-demo'});
       if(req.method==='GET'&&url.pathname==='/api/ai/status')return send(res,200,{...aiStatus(config()),publicDemo,allowPlanChanges:!publicDemo});
+      if(url.pathname.startsWith('/api/admin/dashboard')||url.pathname==='/api/admin/session'||url.pathname==='/api/admin/services'||url.pathname.startsWith('/api/admin/cases/')||url.pathname.startsWith('/api/admin/workspaces/')||url.pathname.startsWith('/api/admin/accounts/')){
+        if(!adminPassword)throw fail(404,'NOT_FOUND','Dashboard quản trị chưa được bật.');
+        if(req.method==='POST'&&url.pathname==='/api/admin/session'){
+          const key=String(req.socket?.remoteAddress||'local');
+          const attempts=(loginAttempts.get(key)||[]).filter(at=>now()-at<60_000);
+          if(attempts.length>=5)throw fail(429,'RATE_LIMIT','Thử lại sau một phút.');
+          const body=await json(req,2048);
+          const supplied=typeof body.password==='string'?body.password:'';
+          const digest=value=>createHash('sha256').update(value).digest();
+          if(!timingSafeEqual(digest(supplied),digest(adminPassword))){attempts.push(now());loginAttempts.set(key,attempts);throw fail(401,'ADMIN_AUTH','Mật khẩu quản trị không đúng.');}
+          loginAttempts.delete(key);
+          const token=randomBytes(32).toString('hex');
+          adminSessions.set(token,now()+8*60*60*1000);
+          for(const [value,expiry] of adminSessions)if(expiry<now())adminSessions.delete(value);
+          return send(res,200,{sessionToken:token,expiresAt:new Date(now()+8*60*60*1000).toISOString()});
+        }
+        const token=req.headers['x-admin-session'];
+        if(typeof token!=='string'||!adminSessions.has(token)||adminSessions.get(token)<now())throw fail(401,'ADMIN_SESSION','Phiên quản trị đã hết hạn. Vui lòng đăng nhập lại.');
+        if(req.method==='GET'&&url.pathname==='/api/admin/session')return send(res,200,{ok:true});
+        if(req.method==='DELETE'&&url.pathname==='/api/admin/session'){adminSessions.delete(token);return send(res,200,{ok:true});}
+        if(req.method==='GET'&&url.pathname==='/api/admin/services')return send(res,200,buildServiceSnapshot(store.exportData(),aiStatus(config()),serviceMonitor.snapshot(),now()));
+        if(req.method==='GET'&&['/api/admin/dashboard','/api/admin/dashboard/live'].includes(url.pathname))return send(res,200,buildLiveAdminSnapshot(store.exportData(),now()));
+        const caseRoute=url.pathname.match(/^\/api\/admin\/cases\/([^/]+)$/);
+        if(caseRoute&&['PATCH','DELETE'].includes(req.method)){
+          const body=await json(req,2048);
+          if(req.method==='PATCH'&&typeof body.flagged!=='boolean')throw fail(400,'INVALID','Trạng thái flag không hợp lệ.');
+          store.adminCase({caseId:decodeURIComponent(caseRoute[1]),operation:req.method==='DELETE'?'delete':body.flagged?'flag':'unflag',expectedRevision:body.expectedRevision});
+          return send(res,200,buildLiveAdminSnapshot(store.exportData(),now()));
+        }
+        const workspaceRoute=url.pathname.match(/^\/api\/admin\/workspaces\/([^/]+)$/);
+        if(workspaceRoute&&['PATCH','DELETE'].includes(req.method)){
+          const body=await json(req,2048);
+          if(req.method==='PATCH'&&typeof body.flagged!=='boolean')throw fail(400,'INVALID','Trạng thái flag không hợp lệ.');
+          store.adminWorkspace({workspaceId:decodeURIComponent(workspaceRoute[1]),operation:req.method==='DELETE'?'delete':body.flagged?'flag':'unflag',expectedRevision:body.expectedRevision});
+          return send(res,200,buildLiveAdminSnapshot(store.exportData(),now()));
+        }
+        const accountRoute=url.pathname.match(/^\/api\/admin\/accounts\/([^/]+)$/);
+        if(accountRoute&&req.method==='PATCH'){
+          const body=await json(req,2048);
+          store.adminAccount({accountId:decodeURIComponent(accountRoute[1]),name:body.name,email:body.email,status:body.status,tier:body.tier,billing:body.billing,permissions:body.permissions,expectedRevision:body.expectedRevision});
+          return send(res,200,buildLiveAdminSnapshot(store.exportData(),now()));
+        }
+        throw fail(405,'METHOD','Phương thức quản trị không được hỗ trợ.');
+      }
       if(url.pathname==='/api/admin/backup'||url.pathname==='/api/admin/restore'){
         const supplied=req.headers.authorization;
         const digest=value=>createHash('sha256').update(value).digest();
@@ -51,13 +102,14 @@ export function createAPI({store=createWorkflowStore({filePath:process.env.WORKF
       if(req.method==='POST'&&url.pathname==='/api/demo/session'){
         const body=await json(req);const userId=body.role==='founder'?'founder':body.role==='investor'?'investor':null;
         if(!userId)throw fail(400,'ROLE','Vai trò không hợp lệ.');
+        if(store.accountStatus(userId)==='suspended')throw fail(403,'ACCOUNT_SUSPENDED','Tài khoản đã bị quản trị viên tạm khóa.');
         const sessionToken=randomBytes(32).toString('hex');sessions.set(sessionToken,{userId,expires:now()+12*60*60*1000});
         for(const [token,value] of sessions)if(value.expires<now())sessions.delete(token);
         if(sessions.size>1000)sessions.delete(sessions.keys().next().value);
-        return send(res,200,{user:DEMO_USERS[userId],sessionToken,mode:'local-demo'});
+        return send(res,200,{user:store.snapshot(userId).user,sessionToken,mode:'local-demo'});
       }
       const userId=actor(req);
-      if(req.method==='GET'&&url.pathname==='/api/session')return send(res,200,{user:DEMO_USERS[userId]});
+      if(req.method==='GET'&&url.pathname==='/api/session')return send(res,200,{user:store.snapshot(userId).user});
       if(req.method==='GET'&&url.pathname==='/api/workflow')return send(res,200,store.snapshot(userId));
       if(req.method==='POST'&&url.pathname==='/api/workflow/actions'){
         const action=await json(req);
@@ -128,6 +180,7 @@ export function createAPI({store=createWorkflowStore({filePath:process.env.WORKF
       }
       throw fail(404,'NOT_FOUND','Không tìm thấy API.');
     } catch(error) {
+      requestErrorCode=error.code||'';
       const status=Number.isInteger(error.status)&&error.status>=400&&error.status<=599?error.status:400;
       send(res,status,{code:error.code||'INVALID',message:status===500?'Máy chủ gặp lỗi. Vui lòng thử lại.':error.message,feature:error.feature,quota:error.quota,required:error.required,usageUnknown:Boolean(error.usageUnknown)});
     }

@@ -32,6 +32,7 @@ export async function serveAPI(request, handler) {
     },
   };
   let status=200,ended=false,response;
+  const finishListeners=[];
   const responseHeaders=new Headers(),chunks=[];
   const res = {
     headersSent:false, writableEnded:false, destroyed:false,
@@ -39,6 +40,7 @@ export async function serveAPI(request, handler) {
     setHeader(name,value){responseHeaders.set(name,String(value));return res;},
     getHeader(name){return responseHeaders.get(name);},
     removeHeader(name){responseHeaders.delete(name);},
+    once(name,listener){if(name==='finish'&&typeof listener==='function')finishListeners.push(listener);return res;},
     writeHead(code,values={}){status=code;for(const [name,value] of Object.entries(values))responseHeaders.set(name,String(value));res.headersSent=true;return res;},
     write(value){if(ended)throw new Error('Response already ended');if(value!==undefined)chunks.push(Buffer.from(value));return true;},
     end(value){
@@ -46,7 +48,9 @@ export async function serveAPI(request, handler) {
       if(value!==undefined)chunks.push(Buffer.from(value));
       ended=true;res.headersSent=true;res.writableEnded=true;
       const body=request.method==='HEAD'||[204,205,304].includes(status)?null:Buffer.concat(chunks);
-      response=new Response(body,{status,headers:responseHeaders});return res;
+      response=new Response(body,{status,headers:responseHeaders});
+      for(const listener of finishListeners)try{listener();}catch{/* Monitoring must not alter the API response. */}
+      return res;
     },
   };
   try {

@@ -10,6 +10,9 @@ export const DEMO_USERS = Object.freeze({
   investor: Object.freeze({ id: 'investor', role: 'investor', name: 'Nhà đầu tư' }),
   investor2: Object.freeze({ id: 'investor2', role: 'investor', name: 'Nhà đầu tư thứ hai' }),
 });
+const ACCOUNT_PERMISSION_KEYS = ['workspaces','cases','connections','investments','aiAnalysis','aiChat'];
+const fullPermissions = () => Object.fromEntries(ACCOUNT_PERMISSION_KEYS.map(key=>[key,true]));
+const NOTIFICATION_KINDS = ['account','request','decision','payment','message','listing','report'];
 
 function error(status, code, message, details = {}) { return Object.assign(new Error(message), { status, code, ...details }); }
 function text(value, label, min = 1, max = 500) {
@@ -31,7 +34,7 @@ function dateOnly(value) {
 }
 const id = prefix => `${prefix}-${randomUUID()}`;
 const freshBucket = () => ({ aiTokens: 0, connections: 0, analyses: 0 });
-const freshData = () => ({ version: 1, revision: 0, accounts: Object.fromEntries(Object.keys(DEMO_USERS).map(userId => [userId, { tier: 'free', billing: 'monthly', ledgers: { free: freshBucket() }, watchlist: [], compare: [] }])), workspaces: [], cases: [], requests: [], messages: [], portfolio: [], reports: [], aiChats: [], reservations: [], workspaceDraft: null });
+const freshData = () => ({ version: 1, revision: 0, accounts: Object.fromEntries(Object.keys(DEMO_USERS).map(userId => [userId, { name:DEMO_USERS[userId].name, email:'', tier: 'free', billing: 'monthly', status:'active', permissions:fullPermissions(), ledgers: { free: freshBucket() }, watchlist: [], compare: [] }])), workspaces: [], cases: [], requests: [], messages: [], portfolio: [], reports: [], aiChats: [], reservations: [], notifications:[], workspaceDraft: null });
 
 function publicImage(value, label, maxBytes) {
   if (value == null || value === '') return '';
@@ -162,7 +165,7 @@ function checkedAnalysis(value) {
 function validatedState(value) {
   try {
     const state=structuredClone(value);
-    keys(state,['version','revision','accounts','workspaces','cases','requests','messages','portfolio','reports','aiChats','reservations','workspaceDraft']);
+    keys(state,['version','revision','accounts','workspaces','cases','requests','messages','portfolio','reports','aiChats','reservations','notifications','workspaceDraft']);
     if (state.version!==1) throw backupInvalid();
     integer(state.revision,'Revision');
     keys(state.accounts,Object.keys(DEMO_USERS));
@@ -173,7 +176,17 @@ function validatedState(value) {
     const actorId=(value,role)=>{if(typeof value!=='string'||!Object.hasOwn(DEMO_USERS,value)||role&&DEMO_USERS[value].role!==role)throw backupInvalid();return value;};
     const bucketValid=value=>value==='free'||typeof value==='string'&&(/^week:\d{4}-\d{2}-\d{2}$/.test(value)&&weekKey(new Date(`${value.slice(5)}T12:00:00+07:00`))===value.slice(5)||/^month:\d{4}-(0[1-9]|1[0-2])$/.test(value));
     for (const [userId,account] of Object.entries(state.accounts)) {
-      keys(account,['tier','billing','ledgers','watchlist','compare']);
+      keys(account,['name','email','tier','billing','status','permissions','ledgers','watchlist','compare']);
+      if(account.name===undefined)account.name=DEMO_USERS[userId].name;
+      if(account.email===undefined)account.email='';
+      text(account.name,'Tên tài khoản',1,100);
+      text(account.email,'Email',0,254);
+      if(account.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(account.email))throw backupInvalid();
+      if(account.status===undefined)account.status='active';
+      if(!['active','suspended'].includes(account.status))throw backupInvalid();
+      if(account.permissions===undefined)account.permissions=fullPermissions();
+      keys(account.permissions,ACCOUNT_PERMISSION_KEYS);
+      for(const key of ACCOUNT_PERMISSION_KEYS)if(typeof account.permissions[key]!=='boolean')throw backupInvalid();
       if(typeof account.tier!=='string'||!Object.hasOwn(ROLE_PLANS[DEMO_USERS[userId].role],account.tier)||!['monthly','annual'].includes(account.billing)||!object(account.ledgers)||!Object.hasOwn(account.ledgers,'free'))throw backupInvalid();
       if(Object.keys(account.ledgers).length>10000)throw backupInvalid();
       for(const [key,bucket] of Object.entries(account.ledgers)) {
@@ -188,6 +201,7 @@ function validatedState(value) {
     }
     if(state.aiChats===undefined)state.aiChats=[];
     if(state.cases===undefined)state.cases=[];
+    if(state.notifications===undefined)state.notifications=[];
     if(state.workspaceDraft===undefined)state.workspaceDraft=null;
     if(state.workspaceDraft!==null){
       const draft=state.workspaceDraft;
@@ -198,18 +212,32 @@ function validatedState(value) {
       draft.profile=normalizeProfile(draft.profile);timestamp(draft.savedAt);
     }
     const indexes={};
-    for(const name of ['workspaces','cases','requests','messages','portfolio','reports','aiChats','reservations']) {
+    for(const name of ['workspaces','cases','requests','messages','portfolio','reports','aiChats','reservations','notifications']) {
       if(!Array.isArray(state[name])||state[name].length>100000)throw backupInvalid();
       indexes[name]=new Map();for(const row of state[name]) {
         if(!object(row))throw backupInvalid();const key=text(row.id,'ID',1,200);
         if(indexes[name].has(key))throw backupInvalid();indexes[name].set(key,row);
       }
     }
+    for(const notification of state.notifications){
+      keys(notification,['id','userId','kind','title','body','href','createdAt','readAt']);
+      actorId(notification.userId);
+      if(!NOTIFICATION_KINDS.includes(notification.kind))throw backupInvalid();
+      text(notification.title,'Tiêu đề thông báo',1,120);
+      text(notification.body,'Nội dung thông báo',1,500);
+      if(typeof notification.href!=='string'||!/^#\/[a-z0-9/_-]{1,200}$/i.test(notification.href))throw backupInvalid();
+      timestamp(notification.createdAt);
+      if(notification.readAt!==null)timestamp(notification.readAt);
+    }
     const project=id=>{const w=indexes.workspaces.get(id);if(!w)throw backupInvalid();return w;};
     const historicalAccess=(userId,workspaceId)=>project(workspaceId).ownerId===userId||state.requests.some(request=>request.workspaceId===workspaceId&&request.investorId===userId&&['approved','revoked'].includes(request.status));
     const optionalWorkspace=(workspaceId,userId)=>{if(workspaceId!==null){if(typeof workspaceId!=='string'||!historicalAccess(userId,workspaceId))throw backupInvalid();}};
     for(const w of state.workspaces) {
-      keys(w,['id','ownerId','name','goal','profile','published','publishedAt','financial','diligence','createdAt','updatedAt','catalogListing','attachments']);actorId(w.ownerId,'founder');text(w.name,'Tên workspace',1,90);text(w.goal,'Mục tiêu',1,500);if(w.catalogListing!==undefined&&typeof w.catalogListing!=='boolean')throw backupInvalid();
+      keys(w,['id','ownerId','name','goal','profile','published','publishedAt','financial','diligence','createdAt','updatedAt','catalogListing','attachments','flagged','flaggedAt']);actorId(w.ownerId,'founder');text(w.name,'Tên workspace',1,90);text(w.goal,'Mục tiêu',1,500);if(w.catalogListing!==undefined&&typeof w.catalogListing!=='boolean')throw backupInvalid();
+      if(w.flagged===undefined)w.flagged=false;
+      if(w.flaggedAt===undefined)w.flaggedAt=null;
+      if(typeof w.flagged!=='boolean'||w.flagged!==Boolean(w.flaggedAt))throw backupInvalid();
+      if(w.flaggedAt!==null)timestamp(w.flaggedAt);
       if(w.attachments===undefined)w.attachments=[];
       if(!Array.isArray(w.attachments)||w.attachments.length>3)throw backupInvalid();
       for(const document of w.attachments){keys(document,['id','name','data','createdAt']);text(document.id,'Mã tài liệu',1,200);privateDocument(document);timestamp(document.createdAt);}
@@ -223,13 +251,17 @@ function validatedState(value) {
       if(w.financial!==null){keys(w.financial,['csv','name','updatedAt']);text(w.financial.name,'Tên tệp',1,255);timestamp(w.financial.updatedAt);if(typeof w.financial.csv!=='string'||Buffer.byteLength(w.financial.csv,'utf8')>2_000_000)throw backupInvalid();parseCSV(w.financial.csv);}
     }
     for(const item of state.cases){
-      keys(item,['id','workspaceId','ownerId','title','summary','industry','stage','submittedAt','createdAt','updatedAt']);
+      keys(item,['id','workspaceId','ownerId','title','summary','industry','stage','submittedAt','createdAt','updatedAt','flagged','flaggedAt']);
       const parent=project(item.workspaceId);actorId(item.ownerId,'founder');if(item.ownerId!==parent.ownerId)throw backupInvalid();
       text(item.title,'Tên case',5,100);text(item.summary,'Mô tả case',20,2000);text(item.industry,'Lĩnh vực',2,80);
       if(item.stage==='awaiting_fee_configuration')item.stage='awaiting_payment';
       if(!['draft','awaiting_payment'].includes(item.stage))throw backupInvalid();
       if(item.stage==='draft'&&item.submittedAt!==null||item.stage==='awaiting_payment'&&item.submittedAt===null)throw backupInvalid();
       if(item.submittedAt!==null)timestamp(item.submittedAt);timestamp(item.createdAt);timestamp(item.updatedAt);
+      if(item.flagged===undefined)item.flagged=false;
+      if(item.flaggedAt===undefined)item.flaggedAt=null;
+      if(typeof item.flagged!=='boolean'||item.flagged!==Boolean(item.flaggedAt))throw backupInvalid();
+      if(item.flaggedAt!==null)timestamp(item.flaggedAt);
     }
     const activeRequests=new Set(),paymentIds=new Set(),requestCounts={};
     for(const r of state.requests) {
@@ -320,28 +352,30 @@ export function createWorkflowStore({ filePath, now = () => new Date(), initialD
     for(const account of Object.values(loaded.accounts||{}))for(const key of ['watchlist','compare'])if(Array.isArray(account[key]))account[key]=account[key].map(replaceId);
     for(const name of ['cases','requests','messages','portfolio','reports','aiChats','reservations'])if(Array.isArray(loaded[name]))for(const row of loaded[name])if(typeof row?.workspaceId==='string')row.workspaceId=replaceId(row.workspaceId);
   }
-  if(seedMarketplace){
-    const stamp=new Date(now()).toISOString(), examples=createMarketplaceStartups(stamp);
-    if(loaded===undefined){loaded={...freshData(),workspaces:examples};catalogChanged=true;}
-    else if(Array.isArray(loaded.workspaces)){
-      const byId=new Map(examples.map(workspace=>[workspace.id,workspace]));
-      const existing=new Set(loaded.workspaces.map(workspace=>workspace?.id));
-      const workspaces=loaded.workspaces.map(current=>{
-        const example=byId.get(current?.id);
-        if(!example)return current;
-        const next={...current,...example,financial:current.financial||example.financial,diligence:{...example.diligence,...(current.diligence||{})},createdAt:current.createdAt,publishedAt:current.publishedAt||example.publishedAt,updatedAt:current.updatedAt};
-        if(!sameValue(next,current)){next.updatedAt=stamp;catalogChanged=true;}
-        return next;
-      });
-      const missing=examples.filter(workspace=>!existing.has(workspace.id));
-      if(missing.length){workspaces.push(...missing);catalogChanged=true;}
-      if(catalogChanged)loaded={...loaded,workspaces};
-    }
+  if(seedMarketplace&&(loaded===undefined||loaded.revision===0&&Array.isArray(loaded.workspaces)&&!loaded.workspaces.length)){
+    const stamp=new Date(now()).toISOString();
+    loaded={...(loaded||freshData()),workspaces:createMarketplaceStartups(stamp)};
+    catalogChanged=true;
   }
   let data=validatedState(loaded===undefined?freshData():loaded);
   function user(userId) {
     if (!Object.hasOwn(DEMO_USERS, userId)) throw error(401, 'SESSION', 'Chọn vai trò để tiếp tục.');
-    return DEMO_USERS[userId];
+    return {...DEMO_USERS[userId],name:data.accounts[userId].name};
+  }
+  function notify(state,userId,{kind,title,body,href},stamp=now().toISOString()) {
+    state.notifications.push({id:id('notification'),userId,kind,title,body,href,createdAt:stamp,readAt:null});
+    // Keep the persisted feed bounded, while retaining the newest notices for every account.
+    if(state.notifications.length>600){
+      const counts=new Map();
+      state.notifications=state.notifications.slice().reverse().filter(item=>{
+        const count=counts.get(item.userId)||0;
+        counts.set(item.userId,count+1);
+        return count<200;
+      }).reverse();
+    }
+  }
+  function requirePermission(userId,permission) {
+    if(!data.accounts[userId].permissions[permission])throw error(403,'ACCOUNT_PERMISSION','Quản trị viên đã tắt quyền sử dụng tính năng này cho tài khoản.');
   }
   function plan(state, userId) { return { ...ROLE_PLANS[user(userId).role][state.accounts[userId].tier], billing: state.accounts[userId].billing }; }
   function bucketKey(state, userId) { return state.accounts[userId].tier === 'free' ? 'free' : user(userId).role==='investor' ? `month:${monthKey(now())}` : `week:${weekKey(now())}`; }
@@ -415,7 +449,7 @@ export function createWorkflowStore({ filePath, now = () => new Date(), initialD
     const accessible = data.workspaces.filter(w => canRead(data, userId, w));
     const accessibleIds = new Set(accessible.map(w => w.id));
     return structuredClone({
-      revision: data.revision, user: actor, plan: plan(data,userId), usage: usage(data,userId),
+      revision: data.revision, user: actor, plan: plan(data,userId), usage: usage(data,userId), permissions:data.accounts[userId].permissions,
       workspaceDraft: actor.role==='founder' ? data.workspaceDraft : null,
       workspaces: accessible.map(w => ({ ...w, attachments:(w.attachments||[]).map(({id,name,createdAt})=>({id,name,createdAt})), isOwner: w.ownerId === userId, canManage: w.ownerId === userId })),
       marketplace: data.workspaces.filter(w => w.published).map(publicProject),
@@ -428,14 +462,33 @@ export function createWorkflowStore({ filePath, now = () => new Date(), initialD
       reports: data.reports.filter(r => r.workspaceId ? accessibleIds.has(r.workspaceId) : r.authorId === userId),
       aiChats: data.aiChats.filter(m => m.authorId === userId && (!m.workspaceId || accessibleIds.has(m.workspaceId))),
       messages: data.messages.filter(m => accessibleIds.has(m.workspaceId)),
+      notifications: data.notifications.filter(item=>item.userId===userId).slice().reverse(),
     });
   }
   function act(userId, action) {
     user(userId);
     if (!action || typeof action.type !== 'string') throw error(400, 'INVALID', 'Thao tác không hợp lệ.');
+    const permission=({
+      'save-workspace-draft':'workspaces','create-workspace':'workspaces','add-attachment':'workspaces','remove-attachment':'workspaces',publish:'workspaces',unpublish:'workspaces','upload-financial':'workspaces','update-diligence':'workspaces',
+      'create-case':'cases','update-case':'cases','submit-case':'cases','withdraw-case':'cases',
+      'request-access':'connections','decide-access':'connections','bypass-connection-fee-demo':'connections','send-message':'connections',
+      'toggle-watch':'investments','toggle-compare':'investments',compare:'investments','record-investment':'investments','update-investment':'investments',
+      'export-report':'aiAnalysis',
+    })[action.type];
+    if(permission)requirePermission(userId,permission);
     const next = structuredClone(data), stamp = now().toISOString();
     const currentPlan = plan(next, userId);
     switch (action.type) {
+      case 'read-notification': {
+        const notice=next.notifications.find(item=>item.id===action.notificationId&&item.userId===userId);
+        if(!notice)throw error(404,'NOT_FOUND','Không tìm thấy thông báo.');
+        if(!notice.readAt)notice.readAt=stamp;
+        break;
+      }
+      case 'read-all-notifications': {
+        for(const notice of next.notifications)if(notice.userId===userId&&!notice.readAt)notice.readAt=stamp;
+        break;
+      }
       case 'save-workspace-draft': {
         if (user(userId).role !== 'founder') throw error(403, 'FORBIDDEN', 'Chỉ Startup được lưu nháp workspace.');
         const name=text(action.name,'Tên workspace',1,90), goal=text(action.goal,'Mục tiêu',1,500);
@@ -448,7 +501,7 @@ export function createWorkflowStore({ filePath, now = () => new Date(), initialD
         requireRoom(next.workspaces.filter(w => w.ownerId === userId && !w.catalogListing).length, currentPlan.workspaces, 'workspaces');
         const name = text(action.name, 'Tên workspace', 1, 90), goal = text(action.goal, 'Mục tiêu', 1, 500);
         const profile = action.profile ? normalizeProfile(action.profile) : { name, industry:'Chưa công bố', stage:'Pre-seed', location:'Việt Nam', summary:goal.padEnd(10,'.'), target:1 };
-        next.workspaces.push({ id:id('workspace'), ownerId:userId, name, goal, profile, published:false, publishedAt:null, financial:null, diligence:{}, createdAt:stamp, updatedAt:stamp });
+        next.workspaces.push({ id:id('workspace'), ownerId:userId, name, goal, profile, published:false, publishedAt:null, financial:null, diligence:{}, flagged:false, flaggedAt:null, createdAt:stamp, updatedAt:stamp });
         next.workspaceDraft=null;
         break;
       }
@@ -469,7 +522,7 @@ export function createWorkflowStore({ filePath, now = () => new Date(), initialD
       }
       case 'create-case': {
         const project=owned(next,userId,action.workspaceId);
-        next.cases.push({id:id('case'),workspaceId:project.id,ownerId:userId,title:text(action.title,'Tên case',5,100),summary:text(action.summary,'Mô tả case',20,2000),industry:project.profile.industry,stage:'draft',submittedAt:null,createdAt:stamp,updatedAt:stamp});
+        next.cases.push({id:id('case'),workspaceId:project.id,ownerId:userId,title:text(action.title,'Tên case',5,100),summary:text(action.summary,'Mô tả case',20,2000),industry:project.profile.industry,stage:'draft',submittedAt:null,flagged:false,flaggedAt:null,createdAt:stamp,updatedAt:stamp});
         break;
       }
       case 'update-case':
@@ -527,6 +580,7 @@ export function createWorkflowStore({ filePath, now = () => new Date(), initialD
         const current=bucket(next,userId);requireRoom(current.connections,currentPlan.connections,'connections');
         next.requests.push({ id:id('access'), workspaceId:project.id, investorId:userId, message:text(action.message,'Lời nhắn',10,1000), status:'pending', createdAt:stamp, updatedAt:stamp });
         current.connections++;
+        notify(next,project.ownerId,{kind:'request',title:'Có yêu cầu xem hồ sơ mới',body:`${user(userId).name} muốn kết nối với ${project.profile.name}.`,href:`#/workspace/${project.id}`},stamp);
         break;
       }
       case 'decide-access': {
@@ -537,6 +591,9 @@ export function createWorkflowStore({ filePath, now = () => new Date(), initialD
         if(action.decision==='revoked' && request.status!=='approved') throw error(409,'CONFLICT','Chỉ thu hồi yêu cầu đang được duyệt.');
         if(action.decision!=='revoked' && request.status!=='pending') throw error(409,'CONFLICT','Yêu cầu đã được xử lý.');
         request.status=action.decision;if(action.decision==='approved'){request.payments={startup:null,investor:null};request.demoAccess=false;}request.updatedAt=stamp;
+        const project=workspace(next,request.workspaceId);
+        const decisionText={approved:'đã đồng ý yêu cầu xem hồ sơ',rejected:'đã từ chối yêu cầu xem hồ sơ',revoked:'đã thu hồi quyền xem hồ sơ'}[action.decision];
+        notify(next,request.investorId,{kind:'decision',title:'Cập nhật yêu cầu kết nối',body:`${project.profile.name} ${decisionText}.`,href:`#/startup/${project.id}`},stamp);
         break;
       }
       case 'bypass-connection-fee-demo': {
@@ -544,6 +601,8 @@ export function createWorkflowStore({ filePath, now = () => new Date(), initialD
         if(!request)throw error(404,'NOT_FOUND','Không tìm thấy yêu cầu.');
         if(request.status!=='approved'||request.investorId!==userId&&workspace(next,request.workspaceId).ownerId!==userId)throw error(403,'FORBIDDEN','Chỉ hai bên trong yêu cầu đã được duyệt mới có thể mở quyền demo.');
         request.demoAccess=true;request.updatedAt=stamp;
+        const project=workspace(next,request.workspaceId);
+        notify(next,request.investorId===userId?project.ownerId:request.investorId,{kind:'payment',title:'Đã mở quyền xem hồ sơ',body:`Hồ sơ ${project.profile.name} đã được mở cho hai bên trong chế độ demo.`,href:request.investorId===userId?`#/workspace/${project.id}`:`#/startup/${project.id}`},stamp);
         break;
       }
       case 'upload-financial': {
@@ -566,6 +625,8 @@ export function createWorkflowStore({ filePath, now = () => new Date(), initialD
       case 'send-message': {
         const project=readable(next,userId,action.workspaceId);
         next.messages.push({id:id('message'),workspaceId:project.id,authorId:userId,authorName:user(userId).name,text:text(action.text,'Nội dung',1,5000),createdAt:stamp});
+        const recipients=user(userId).role==='investor'?[project.ownerId]:next.requests.filter(request=>request.workspaceId===project.id&&request.status==='approved'&&(request.demoAccess||request.payments?.startup&&request.payments?.investor)).map(request=>request.investorId);
+        for(const recipient of new Set(recipients))notify(next,recipient,{kind:'message',title:'Có tin nhắn mới',body:`${user(userId).name} vừa gửi tin nhắn về ${project.profile.name}.`,href:`#/workspace/${project.id}`},stamp);
         break;
       }
       case 'record-investment': {
@@ -612,7 +673,13 @@ export function createWorkflowStore({ filePath, now = () => new Date(), initialD
     if(next.requests.some(row=>Object.values(row.payments||{}).some(receipt=>receipt?.providerPaymentId===paymentId)))throw error(409,'DUPLICATE_PAYMENT','Mã giao dịch đã được ghi nhận.');
     request.payments ||= {startup:null,investor:null};
     request.payments[party]={providerPaymentId:paymentId,amountVnd,currency,paidAt:now().toISOString()};
-    request.updatedAt=now().toISOString();persist(next);return structuredClone(request);
+    request.updatedAt=now().toISOString();
+    const project=workspace(next,request.workspaceId),recipient=party==='startup'?project.ownerId:request.investorId;
+    notify(next,recipient,{kind:'payment',title:'Đã ghi nhận phí kết nối',body:`Đã xác nhận phí kết nối cho ${project.profile.name}.`,href:party==='startup'?`#/workspace/${project.id}`:`#/startup/${project.id}`},request.updatedAt);
+    if(request.payments.startup&&request.payments.investor){
+      for(const userId of [project.ownerId,request.investorId])notify(next,userId,{kind:'payment',title:'Hồ sơ riêng đã mở',body:`Hai bên đã hoàn tất phí kết nối cho ${project.profile.name}.`,href:userId===project.ownerId?`#/workspace/${project.id}`:`#/startup/${project.id}`},request.updatedAt);
+    }
+    persist(next);return structuredClone(request);
   }
   function getFinancial(userId, workspaceId) {
     user(userId);const project=readable(data,userId,workspaceId);
@@ -626,7 +693,7 @@ export function createWorkflowStore({ filePath, now = () => new Date(), initialD
     return {name:document.name,data:document.data};
   }
   function beginAnalysis(userId, options = {}) {
-    user(userId);const next=structuredClone(data);
+    user(userId);requirePermission(userId,'aiAnalysis');const next=structuredClone(data);
     let csv=options.csv,name=options.name||'Phân tích tài chính';
     if(options.workspaceId) {
       const project=readable(next,userId,options.workspaceId);
@@ -645,7 +712,7 @@ export function createWorkflowStore({ filePath, now = () => new Date(), initialD
     return {id:reservation.id,rows,analysis,inputEstimate,maxOutputTokens,requiredTokens,workspaceId:reservation.workspaceId,remaining:quota.remaining-requiredTokens};
   }
   function beginChat(userId, options = {}) {
-    user(userId);const next=structuredClone(data);
+    user(userId);requirePermission(userId,'aiChat');const next=structuredClone(data);
     if(options.workspaceId) readable(next,userId,options.workspaceId);
     const inputEstimate=integer(options.inputTokensEstimate,'Token đầu vào ước tính',1,1_000_000);
     const maxOutputTokens=integer(options.maxOutputTokens ?? 400,'Giới hạn đầu ra',1,32000);
@@ -670,7 +737,9 @@ export function createWorkflowStore({ filePath, now = () => new Date(), initialD
     current.aiTokens=Math.max(0,current.aiTokens-pending.reservedTokens+consumed.totalTokens);current.analyses++;
     pending.status='completed';pending.actualTokens=consumed.totalTokens;pending.finishedAt=now().toISOString();
     const completed={id:id('report'),authorId:userId,workspaceId:pending.workspaceId,name:pending.name,analysis:pending.analysis,ai:report,model:text(result.model,'Model',1,150),provider:text(result.provider,'Nhà cung cấp',1,150),tokenUsage:{...consumed,estimated:false},requestId:typeof result.requestId==='string'?result.requestId:null,createdAt:now().toISOString()};
-    next.reports.push(completed);pending.reportId=completed.id;persist(next);
+    next.reports.push(completed);pending.reportId=completed.id;
+    notify(next,userId,{kind:'report',title:'Báo cáo AI đã hoàn tất',body:`Báo cáo ${completed.name} đã sẵn sàng để xem.`,href:'#/analysis'},completed.createdAt);
+    persist(next);
     // Approval may have been revoked while the provider was running. Still settle costs,
     // but never send the private result back to a user who lost access.
     if(completed.workspaceId&&!canRead(data,userId,workspace(data,completed.workspaceId))) throw error(403,'FORBIDDEN','Quyền truy cập đã bị thu hồi trong lúc phân tích.');
@@ -699,5 +768,89 @@ export function createWorkflowStore({ filePath, now = () => new Date(), initialD
     const current=bucket(next,userId,pending.bucketKey);current.aiTokens=Math.max(0,current.aiTokens-pending.reservedTokens+charged);
     pending.status='failed';pending.actualTokens=charged;pending.finishedAt=now().toISOString();persist(next);return snapshot(userId);
   }
-  return { snapshot, act, settleConnectionPayment, getFinancial, getAttachment, beginAnalysis, finishAnalysis, beginChat, finishChat, failAnalysis, exportData, restoreData };
+  function adminCase({caseId,operation,expectedRevision}={}) {
+    text(caseId,'Mã case',1,200);
+    integer(expectedRevision,'Revision mong đợi');
+    if(expectedRevision!==data.revision)throw error(409,'REVISION_CONFLICT','Dữ liệu đã thay đổi. Hãy tải lại trước khi thao tác.');
+    if(!['flag','unflag','delete'].includes(operation))throw error(400,'INVALID','Thao tác case không hợp lệ.');
+    const next=structuredClone(data),index=next.cases.findIndex(item=>item.id===caseId);
+    if(index<0)throw error(404,'NOT_FOUND','Không tìm thấy case.');
+    if(operation==='delete'){
+      const item=next.cases[index];next.cases.splice(index,1);
+      notify(next,item.ownerId,{kind:'account',title:'Case đã được quản trị viên xóa',body:`Case ${item.title} đã được xóa khỏi hệ thống.`,href:'#/cases'});
+    }
+    else {
+      const item=next.cases[index];
+      item.flagged=operation==='flag';
+      item.flaggedAt=item.flagged?now().toISOString():null;
+      item.updatedAt=now().toISOString();
+    }
+    persist(next);
+    return data.revision;
+  }
+  function adminWorkspace({workspaceId,operation,expectedRevision}={}) {
+    text(workspaceId,'Mã workspace',1,200);
+    integer(expectedRevision,'Revision mong đợi');
+    if(expectedRevision!==data.revision)throw error(409,'REVISION_CONFLICT','Dữ liệu đã thay đổi. Hãy tải lại trước khi thao tác.');
+    if(!['flag','unflag','delete'].includes(operation))throw error(400,'INVALID','Thao tác workspace không hợp lệ.');
+    const next=structuredClone(data),index=next.workspaces.findIndex(item=>item.id===workspaceId);
+    if(index<0)throw error(404,'NOT_FOUND','Không tìm thấy dự án Startup.');
+    if(operation==='delete'){
+      const project=next.workspaces[index];
+      const linked=['cases','requests','messages','portfolio','reports','aiChats','reservations'].some(name=>next[name].some(item=>item.workspaceId===workspaceId));
+      if(linked)throw error(409,'WORKSPACE_IN_USE','Dự án có case, kết nối hoặc dữ liệu hoạt động liên quan; chưa thể xóa trực tiếp.');
+      next.workspaces.splice(index,1);
+      for(const account of Object.values(next.accounts))for(const key of ['watchlist','compare'])account[key]=account[key].filter(id=>id!==workspaceId);
+      notify(next,project.ownerId,{kind:'account',title:'Dự án đã được quản trị viên xóa',body:`Dự án ${project.profile.name} đã được xóa khỏi hệ thống.`,href:'#/workspace'});
+    }else{
+      const item=next.workspaces[index];
+      item.flagged=operation==='flag';
+      item.flaggedAt=item.flagged?now().toISOString():null;
+      item.updatedAt=now().toISOString();
+    }
+    persist(next);
+    return data.revision;
+  }
+  function accountStatus(userId) {
+    user(userId);
+    return data.accounts[userId].status;
+  }
+  function adminAccount({accountId,name,email,status,tier,billing,permissions,expectedRevision}={}) {
+    user(accountId);
+    integer(expectedRevision,'Revision mong đợi');
+    if(expectedRevision!==data.revision)throw error(409,'REVISION_CONFLICT','Dữ liệu đã thay đổi. Hãy tải lại trước khi thao tác.');
+    if(name===undefined&&email===undefined&&status===undefined&&tier===undefined&&billing===undefined&&permissions===undefined)throw error(400,'INVALID','Chưa có thay đổi tài khoản.');
+    const next=structuredClone(data),account=next.accounts[accountId];
+    const before={status:account.status,tier:account.tier,billing:account.billing,permissions:structuredClone(account.permissions)};
+    if(name!==undefined)account.name=text(name,'Tên tài khoản',1,100);
+    if(email!==undefined){
+      const value=text(email,'Email',0,254);
+      if(value&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))throw error(400,'INVALID','Email không hợp lệ.');
+      account.email=value;
+    }
+    if(status!==undefined){
+      if(!['active','suspended'].includes(status))throw error(400,'INVALID','Trạng thái tài khoản không hợp lệ.');
+      account.status=status;
+    }
+    if(tier!==undefined||billing!==undefined){
+      const chosenTier=tier??account.tier,chosenBilling=billing??account.billing;
+      if(!Object.hasOwn(ROLE_PLANS[user(accountId).role],chosenTier)||!['monthly','annual'].includes(chosenBilling))throw error(400,'INVALID','Gói tài khoản không hợp lệ.');
+      account.tier=chosenTier;
+      account.billing=chosenBilling;
+    }
+    if(permissions!==undefined){
+      if(!object(permissions)||Object.keys(permissions).some(key=>!ACCOUNT_PERMISSION_KEYS.includes(key)))throw error(400,'INVALID','Quyền tài khoản không hợp lệ.');
+      if(!Object.keys(permissions).length)throw error(400,'INVALID','Chưa chọn quyền cần thay đổi.');
+      for(const [key,value] of Object.entries(permissions)){
+        if(typeof value!=='boolean')throw error(400,'INVALID','Quyền tài khoản không hợp lệ.');
+        account.permissions[key]=value;
+      }
+    }
+    if(before.status!==account.status)notify(next,accountId,{kind:'account',title:account.status==='suspended'?'Tài khoản đã bị khóa':'Tài khoản đã được mở lại',body:account.status==='suspended'?'Quản trị viên đã tạm khóa tài khoản của bạn.':'Quản trị viên đã mở lại tài khoản của bạn.',href:'#/home'});
+    if(before.tier!==account.tier||before.billing!==account.billing)notify(next,accountId,{kind:'account',title:'Gói tài khoản đã thay đổi',body:`Quản trị viên đã cập nhật gói của bạn thành ${account.tier.toUpperCase()}.`,href:'#/pricing'});
+    if(ACCOUNT_PERMISSION_KEYS.some(key=>before.permissions[key]!==account.permissions[key]))notify(next,accountId,{kind:'account',title:'Quyền sử dụng đã thay đổi',body:'Quản trị viên đã cập nhật quyền sử dụng các tính năng của tài khoản.',href:'#/privacy'});
+    persist(next);
+    return data.revision;
+  }
+  return { snapshot, act, adminCase, adminWorkspace, adminAccount, accountStatus, settleConnectionPayment, getFinancial, getAttachment, beginAnalysis, finishAnalysis, beginChat, finishChat, failAnalysis, exportData, restoreData };
 }

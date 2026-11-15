@@ -2,6 +2,22 @@
 
 Bản thử giao diện và nghiệp vụ cho Startup/Investor. [Hướng dẫn dùng demo](README-DEMO.md) mở `http://localhost:5180/?mode=demo#/conversations` cho Investor; bản dùng API máy chủ mở `http://localhost:5180/`. Hai URL có dữ liệu và mức hoàn thiện khác nhau. Dashboard Investor ở `#/dashboard`. Case mới trên máy chủ nằm ở `#/cases`, hiện dừng tại trạng thái chờ mở thanh toán và không xuất hiện cho Investor.
 
+## Admin dashboard local
+
+Đặt `ADMIN_DASHBOARD_PASSWORD` trong `web/.env`, chạy `npm start`, rồi mở `http://127.0.0.1:5180/#/admin/overview`. Admin có sáu mục: **Tổng quan** cho số liệu và việc cần theo dõi; **Startup** với hai phần Workspace và Case; **Tài chính** với Doanh thu và Đầu tư; **Kết nối**; **Tài khoản**; **API & AI**. Biểu đồ và danh sách thu phí nằm trong Tài chính, không lặp trên Tổng quan. Các URL cũ của từng phần vẫn mở được. Mật khẩu chỉ được kiểm tra ở API; phiên admin riêng, hết hạn sau 8 giờ. Không có cấu hình mật khẩu thì API và trang admin không truy cập được.
+
+Từ trang chủ ứng dụng, chọn **Đăng nhập quản trị** dưới hai nút mở workspace/trò chuyện; link tương tự nằm ở cuối sidebar Startup và Investor. Sau đó nhập mật khẩu admin. Lối vào này chỉ điều hướng tới màn hình đăng nhập, không cấp quyền admin cho tài khoản Startup/Investor.
+
+Admin đọc dữ liệu từ ứng dụng và tự cập nhật mỗi 5 giây: toàn bộ dự án trong Startup Marketplace, workspace Startup, case, yêu cầu kết nối, trạng thái thanh toán, biên nhận máy chủ và các khoản đầu tư Investor tự ghi nhận. Trong mục **Startup → Workspace**, admin có thể Flag/Bỏ flag dự án để rà soát mà không ẩn khỏi Marketplace, hoặc xóa dự án chưa có case, kết nối hay dữ liệu hoạt động liên quan. Dự án đã xóa không tự xuất hiện lại khi máy chủ khởi động. Trong **Startup → Case**, admin có thể Flag/Bỏ flag case mà không ẩn nó, hoặc xóa case khỏi cả Startup và admin; xóa case không xóa workspace hay yêu cầu kết nối. Các khoản phí đang chờ không tính vào doanh thu. Doanh thu chỉ cộng các khoản phí kết nối đã có biên nhận thanh toán do máy chủ ghi nhận. Khoản đầu tư Investor tự nhập được xem riêng và không tính là doanh thu nền tảng. Luồng niêm yết case hiện chưa mở thanh toán, nên phí niêm yết chờ xử lý chỉ hiển thị trong danh sách, chưa cộng vào doanh thu. Hồ sơ tài chính riêng tư và nội dung trao đổi không được đưa vào API admin.
+
+Trong **Tài khoản**, admin quản lý trực tiếp từ dashboard: sửa tên/email hiển thị, tạm khóa/mở lại, đổi gói Free/Plus/Pro và chu kỳ, bật/tắt quyền quản lý dự án, case, kết nối, danh mục đầu tư, phân tích AI và AI Agent theo vai trò. Tạm khóa chặn cả phiên đang dùng lẫn lần mở phiên kế tiếp qua API máy chủ; tắt quyền tính năng được máy chủ chặn ở thao tác tương ứng. Đổi gói không đặt lại token hay lượt đã dùng. Ứng dụng hiện dùng hai danh tính thử nghiệm cố định, chưa có đăng ký tài khoản riêng hoặc thao tác tạo/xóa danh tính. Bản `?mode=demo` lưu riêng trên trình duyệt không dùng API tài khoản này.
+
+Dữ liệu này đến từ bản ứng dụng dùng API máy chủ tại `http://127.0.0.1:5180/`. Bản `?mode=demo` lưu dữ liệu riêng trong trình duyệt, nên thay đổi ở đó không xuất hiện trong admin.
+
+**API & AI** tại `#/admin/services` đọc trạng thái máy chủ thật. Trang hiển thị API ứng dụng, nhà cung cấp AI, AI Agent chat, phân tích tài chính và phần thanh toán chưa tích hợp. Lượt dùng và token AI lấy từ biên nhận đã lưu; 200 kết quả yêu cầu gần nhất cùng lỗi và độ trễ chỉ được giữ trong bộ nhớ từ lúc máy chủ khởi động. Nhãn gián đoạn xuất hiện khi có ít nhất hai lỗi kết nối nhà cung cấp liên tiếp trong 15 phút; một lỗi được ghi là lỗi gần đây. Chưa có yêu cầu nào thì trạng thái nhà cung cấp là **Chưa kiểm chứng**, không suy diễn downtime. Dashboard không gọi thử nhà cung cấp, nên không phát sinh chi phí AI khi mở trang. API admin không trả khóa, prompt hoặc phản hồi AI.
+
+Biểu đồ thể hiện **doanh thu thuần theo kỳ**: cộng giao dịch vào ngày thanh toán, trừ khoản hoàn vào ngày hoàn tiền. Cả thẻ biểu đồ ửng đỏ nếu nhánh cuối đi xuống hoặc tổng kỳ âm; đoạn tăng và giảm vẫn có màu riêng.
+
 ## Chạy ứng dụng
 
 Yêu cầu Node.js tương thích Vite (đã kiểm tra trên Node 26).
@@ -41,6 +57,15 @@ AI_REASONING_EFFORT=low
 ```
 
 Tạo API key trên [DeepSeek Platform](https://platform.deepseek.com/api_keys), đặt vào `AI_API_KEY` trong `.env` khi chạy local hoặc mục Environment của Render. Không để khóa trong Git, tài liệu hoặc frontend. Có thể dùng `AI_CREDENTIALS_FILE` trỏ đến tệp JSON chứa `DEEPSEEK_API_KEY` thay cho biến môi trường.
+
+Kiểm tra riêng key, model và kết nối DeepSeek bằng một request ngắn, không cần chạy app:
+
+```powershell
+cd web
+npm run test:deepseek
+```
+
+Script đọc `web/.env` hoặc biến môi trường `AI_API_KEY`, gọi đúng endpoint `/responses` mà app đang dùng và chỉ in trạng thái, câu trả lời ngắn cùng số token; không in key. Lệnh này gọi API thật nên có thể phát sinh một ít token. Lỗi 401 là key, 402 là số dư, 404 thường là model hoặc endpoint.
 
 Khóa không dùng tiền tố `VITE_`, không xuất qua `/api/ai/status`, không gửi đến trình duyệt. AI Financial Analysis và AI Agent đều gọi Responses API từ máy chủ, dùng schema báo cáo có cấu trúc và lưu provider/model/requestId cùng token API thực tế. Không tạo câu trả lời mô phỏng khi provider lỗi.
 

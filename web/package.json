@@ -11,6 +11,7 @@
     "test": "node --test ../tools/*.test.mjs tests/*.test.mjs",
     "test:e2e": "playwright test",
     "test:server": "node --test server/*.test.mjs",
+    "test:deepseek": "node ../tools/test-deepseek.mjs",
     "test:e2e:demo": "playwright test --config playwright.demo.config.js",
     "start:prod": "node server/start.mjs",
     "dev:cloudflare": "wrangler dev",

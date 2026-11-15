@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Bot, BriefcaseBusiness, ChartNoAxesColumnIncreasing, ChevronLeft, ChevronRight,
-  Folder, Home, MessageSquare, Rocket, Wallet, X,
+  Folder, Home, MessageSquare, Rocket, ShieldCheck, Wallet, X,
 } from 'lucide-react';
 import { Brand, BrandBadge } from './Brand.jsx';
 
@@ -58,6 +58,7 @@ export function StartupSidebar({ route, mobileOpen, setMobileOpen, collapsed, se
       </nav>
       <div className="mt-auto pt-5">
         <div className="startup-nav-divider mb-4 h-px" />
+        <a href="#/admin/overview" title={narrow ? 'Đăng nhập quản trị' : undefined} aria-label="Đăng nhập quản trị" onClick={closeMobile} className={linkClass(false)}><ShieldCheck size={18} strokeWidth={1.8} className="shrink-0" aria-hidden="true" />{!narrow && <span>Đăng nhập quản trị</span>}</a>
         <div className={`flex items-center gap-3 ${narrow ? 'justify-center' : 'px-2'}`}>
           <span className="startup-account-avatar grid h-9 w-9 shrink-0 place-items-center rounded-full text-[10px] font-bold">ST</span>
           {!narrow && <span className="startup-account-copy min-w-0"><strong className="block truncate text-xs">{accountName}</strong><small className="mt-1 block truncate text-[10px]">{planName}</small></span>}

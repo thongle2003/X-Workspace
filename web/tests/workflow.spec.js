@@ -129,6 +129,15 @@ test('five public case items show to everyone; detailed answers require both con
   await expect(page.getByRole('table')).not.toContainText('Health Peer');
   await page.getByRole('button',{name:'Lưu case để theo dõi'}).click();
   await expect(page.getByRole('button',{name:'Đã lưu · Bỏ lưu'})).toHaveAttribute('aria-pressed','true');
+  await page.goto('/#/workspace');
+  await expect(page.getByRole('heading',{name:'Case đã lưu & workspace'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Case đã lưu',exact:true})).toBeVisible();
+  await expect(page.getByText('Lotus Public',{exact:true})).toBeVisible();
+  await expect(page.getByText('0 workspace có quyền truy cập',{exact:false})).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('Lotus Public',{exact:true})).toBeVisible();
+  await page.getByRole('link',{name:'Xem case →'}).click();
+  await expect(page).toHaveURL(new RegExp(`#/startup/${workspaceId}$`));
   for(const label of ['Vấn đề & giải pháp','Bằng chứng thị trường','Thị trường & đối thủ','Đội ngũ','Tiến độ gọi vốn & sử dụng vốn'])await expect(page.getByText(label,{exact:false}).first()).toBeVisible();
   await expect(page.getByText('Pilot với 3 cửa hàng trong tháng 10/2026.')).toBeVisible();
   await expect(page.getByText('Bảng sở hữu riêng cho nhà đầu tư được duyệt.')).toHaveCount(0);

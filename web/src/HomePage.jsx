@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Bot, ChartNoAxesCombined, FolderKanban, MessagesSquare, Rocket } from 'lucide-react';
+import { ArrowRight, Bot, ChartNoAxesCombined, FolderKanban, MessagesSquare, Rocket, ShieldCheck } from 'lucide-react';
 
 const tools = [
   { icon: FolderKanban, title: 'Workspace dự án', description: 'Công việc, tài liệu và ghi chú của từng dự án.', href: '#/workspace' },
@@ -21,6 +21,7 @@ export function HomePage({ children, onOpenAgent }) {
             <a href="#/workspace" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-indigo-600 px-5 text-sm font-semibold text-white hover:bg-indigo-500">Vào workspace <ArrowRight size={16} aria-hidden="true" /></a>
             <a href="#/conversations" className="home-secondary-action inline-flex min-h-11 items-center gap-2 rounded-xl border px-5 text-sm font-semibold"><MessagesSquare size={16} aria-hidden="true" />Mở trò chuyện</a>
           </div>
+          <a href="#/admin/overview" className="mt-5 inline-flex items-center gap-2 text-xs font-semibold text-indigo-600 hover:text-indigo-500"><ShieldCheck size={16} aria-hidden="true" />Đăng nhập quản trị <ArrowRight size={14} aria-hidden="true" /></a>
         </div>
         <button type="button" onClick={onOpenAgent} className="home-agent-action inline-flex min-h-11 shrink-0 items-center gap-2 self-start rounded-xl border px-4 text-sm font-medium xl:self-end"><Bot size={20} aria-hidden="true" />Khám phá AI Agent</button>
       </div>

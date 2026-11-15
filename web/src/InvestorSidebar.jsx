@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   ChartNoAxesColumnIncreasing, ChevronDown, ChevronLeft, ChevronRight,
-  BriefcaseBusiness, CircleHelp, Crown, Layers, LayoutDashboard, MessageSquare, Rocket, X,
+  BriefcaseBusiness, CircleHelp, Crown, Layers, LayoutDashboard, MessageSquare, Rocket, ShieldCheck, X,
 } from 'lucide-react';
 import { Brand, BrandBadge } from './Brand.jsx';
 
@@ -89,6 +89,7 @@ export function InvestorSidebar({ route, mobileOpen, setMobileOpen, collapsed, s
       <div className="investor-sidebar-footer">
         <div className="investor-nav-divider" />
         <NavLink href="#/support" label="Trợ giúp & Hỗ trợ" icon={CircleHelp} active={route.page === 'support'} collapsed={collapsed} onNavigate={closeMobile} />
+        <NavLink href="#/admin/overview" label="Đăng nhập quản trị" icon={ShieldCheck} active={false} collapsed={collapsed} onNavigate={closeMobile} />
         <div className="investor-account"><span className="investor-account-avatar">NĐ</span><span className="investor-account-copy"><strong>{accountName}</strong><small>{planName}</small></span></div>
       </div>
     </aside>
